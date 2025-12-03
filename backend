@@ -1,4 +1,4 @@
- -- FyyCommunity Loader (tanpa JSONDecode, parsing manual)
+-- FyyCommunity Loader - FULL DEBUG (tanpa Kick)
 local HttpService = game:GetService("HttpService")
 
 local API_URL = "https://loretta-metalline-bebe.ngrok-free.dev/validate"
@@ -22,50 +22,55 @@ local function validateKey()
         tostring(placeId)
     )
 
-    -- HTTP GET + pcall
-    local ok, response = pcall(function()
+    warn("[Fyy Loader] URL:", url)
+
+    -- HttpGet + pcall
+    local ok, resOrErr = pcall(function()
         return game:HttpGet(url)
     end)
 
-    if not ok or not response or response == "" then
-        if player then
-            player:Kick("[Fyy Loader] Tidak bisa menghubungi server validasi.")
-        end
+    warn("[Fyy Loader] HttpGet OK?", ok)
+    warn("[Fyy Loader] typeof(resOrErr):", typeof(resOrErr))
+    warn("[Fyy Loader] POTONGAN RESPON (1–200):")
+    warn(string.sub(tostring(resOrErr), 1, 200))
+
+    if not ok then
+        warn("[Fyy Loader] HttpGet ERROR:", tostring(resOrErr))
         return
     end
 
-    -- DEBUG: liatin beberapa karakter awal biar tau bentuk respon
-    warn("[Fyy Loader] RAW RESPONSE (potongan):")
-    warn(string.sub(response, 1, 200))
+    local response = resOrErr
 
-    -- ===== PARSE MANUAL TANPA JSONDECODE =====
-    -- cari "status":"..."
-    local status = response:match([["status"%s*:%s*"(.-)"]])
-    -- cari "message":"..."
-    local message = response:match([["message"%s*:%s*"(.-)"]])
-    -- cari "code":"..."
-    local code = response:match([["code"%s*:%s*"(.-)"]])
+    -- ==== COBA JSONDECODE ====
+    local okDecode, dataOrErr = pcall(function()
+        return HttpService:JSONDecode(response)
+    end)
 
-    if not status then
-        -- beneran bukan respon API kita
-        if player then
-            player:Kick("[Fyy Loader] Response server tidak valid.")
-        end
+    warn("[Fyy Loader] JSONDecode OK?", okDecode)
+
+    if not okDecode then
+        warn("[Fyy Loader] JSONDecode gagal! error:", tostring(dataOrErr))
         return
     end
 
-    if status ~= "ok" then
-        if player then
-            player:Kick("[Fyy Loader] " .. (message or "Key error (" .. (code or "UNKNOWN") .. ")"))
-        end
+    local data = dataOrErr
+    warn("[Fyy Loader] DATA TABLE:", data)
+
+    -- print field penting
+    warn("[Fyy Loader] status:", data.status)
+    warn("[Fyy Loader] code  :", data.code)
+    warn("[Fyy Loader] msg   :", data.message)
+
+    if data.status ~= "ok" then
+        warn("[Fyy Loader] SERVER ERROR:", data.message or "Key error")
         return
     end
 
-    print("[Fyy Loader] Validation OK:", code or "OK", message or "")
+    print("[Fyy Loader] Validation OK:", data.code, data.message)
 end
 
 validateKey()
 
-print("[Fyy Loader] Script premium mulai jalan untuk key:", _G.script_key)
-
-loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/panel/refs/heads/main/FyyCommunity"))()
+print("[Fyy Loader] Script premium MULAI jalan untuk key:", _G.script_key)
+-- load script utama kalau mau
+-- loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/panel/refs/heads/main/FyyCommunity"))()
