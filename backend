@@ -1,9 +1,7 @@
--- FyyCommunity.lua
--- Loader utama: validasi key ke API, lalu jalankan script premium
-
+-- FyyCommunity Loader (Versi Stabil)
 local HttpService = game:GetService("HttpService")
 
--- GANTI ini pakai URL ngrok kamu (PAKAI /validate di belakang)
+-- PASTIKAN ini sama persis dengan URL ngrok / server kamu
 local API_URL = "https://loretta-metalline-bebe.ngrok-free.dev/validate"
 
 local function validateKey()
@@ -25,27 +23,34 @@ local function validateKey()
         tostring(placeId)
     )
 
-    local response
-    local ok, err = pcall(function()
-        response = game:HttpGet(url)
+    -- HttpGet dengan pcall yang bener
+    local ok, response = pcall(function()
+        return game:HttpGet(url)
     end)
 
-    if not ok or not response then
-        if player then player:Kick("[Fyy Loader] Tidak bisa hubungi server validasi.") end
+    if not ok or not response or response == "" then
+        if player then
+            player:Kick("[Fyy Loader] Tidak bisa menghubungi server validasi.")
+        end
         return
     end
 
+    -- Decode JSON dengan aman
     local data
-    ok, err = pcall(function()
+    ok, _ = pcall(function()
         data = HttpService:JSONDecode(response)
     end)
 
     if not ok or not data then
-        if player then player:Kick("[Fyy Loader] Response server tidak valid.") end
+        warn("[Fyy Loader] Response server tidak valid, RAW:")
+        warn(response) -- biar kalau temen lu SS console, keliatan isinya apa
+        if player then
+            player:Kick("[Fyy Loader] Response server tidak valid.")
+        end
         return
     end
 
-    -- KALAU KEY SALAH / EXPIRED / HWID MISMATCH / BLACKLIST → KICK
+    -- Kalau status bukan "ok" → kick dengan message dari server
     if data.status ~= "ok" then
         if player then
             player:Kick("[Fyy Loader] " .. (data.message or "Key error"))
@@ -60,4 +65,5 @@ validateKey()
 
 print("[Fyy Loader] Script premium mulai jalan untuk key:", _G.script_key)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/FyyCommunity/refs/heads/main/FISHIT%20LOADER"))()
+-- load script utama kamu
+loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/panel/refs/heads/main/FyyCommunity"))()
