@@ -179,7 +179,7 @@ wait(1)
 
 -- Load script utama kamu
 local success, err = pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/FyyCommunity/refs/heads/main/MT%20LOADER"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/FyyCommunity/refs/heads/main/MT_LOADER"))()
 end)
 
 if not success then
