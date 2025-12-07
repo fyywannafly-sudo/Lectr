@@ -2,7 +2,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 -- PASTIKAN ini sama persis dengan URL server kamu (ngrok / VPS)
-local API_BASE_URL = "http:localhost:3000"
+local API_BASE_URL = "http:localhost:3000/validate"
 
 -- USN SYSTEM ENDPOINTS
 local REGISTER_ENDPOINT = API_BASE_URL .. "/usn/register"
@@ -179,7 +179,7 @@ wait(1)
 
 -- Load script utama kamu
 local success, err = pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/FyyCommunity/refs/heads/main/MT_LOADER"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/FyyCommunity/refs/heads/main/FISHIT%20LOADER"))()
 end)
 
 if not success then
