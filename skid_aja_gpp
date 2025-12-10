@@ -84,6 +84,8 @@ local success, scriptContent = pcall(function()
     -- Optional: Tambah HWID juga untuk extra security
     local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
     downloadUrl = downloadUrl .. "&hwid=" .. HttpService:UrlEncode(hwid)
+    
+    print("[Fyy Loader] 📥 Download script dari:", downloadUrl)
     return game:HttpGet(downloadUrl, true)
 end)
 
@@ -98,13 +100,14 @@ if not success or not scriptContent then
         elseif errorMsg:find("404") then
             player:Kick("[Fyy Loader] ❌ Script tidak ditemukan di server.")
         else
-            player:Kick("[Fyy Loader] ❌ Gagal LOAD script: " .. errorMsg:sub(1, 100))
+            player:Kick("[Fyy Loader] ❌ Gagal download script: " .. errorMsg:sub(1, 100))
         end
     end
     return
 end
 
 -- 3. Execute script utama
+print("[Fyy Loader] ✅ Script berhasil didownload, executing...")
 
 local success, errorMsg = pcall(function()
     loadstring(scriptContent)()
@@ -122,7 +125,3 @@ else
     print("[Fyy Loader] ✅ Script berhasil dijalankan!")
 end
 
-
-
-
-biar loadernya bersih dari print gimana ya tapi fungsi tetep sama
