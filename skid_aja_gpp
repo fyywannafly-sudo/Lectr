@@ -85,7 +85,6 @@ local success, scriptContent = pcall(function()
     local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
     downloadUrl = downloadUrl .. "&hwid=" .. HttpService:UrlEncode(hwid)
     
-    print("[Fyy Loader] 📥 Download script dari:", downloadUrl)
     return game:HttpGet(downloadUrl, true)
 end)
 
