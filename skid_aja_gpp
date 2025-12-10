@@ -74,6 +74,7 @@ if not isValid then
     return  -- Stop kalo key invalid
 end
 
+print("[Fyy Loader] 🚀 Script premium mulai jalan untuk key:", _G.script_key)
 
 -- 2. Download dan execute script dari SERVER DENGAN KEY
 local success, scriptContent = pcall(function()
@@ -84,7 +85,7 @@ local success, scriptContent = pcall(function()
     local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
     downloadUrl = downloadUrl .. "&hwid=" .. HttpService:UrlEncode(hwid)
     
-
+    print("[Fyy Loader] 📥 Download script dari:", downloadUrl)
     return game:HttpGet(downloadUrl, true)
 end)
 
