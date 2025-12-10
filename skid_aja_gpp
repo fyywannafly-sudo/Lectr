@@ -1,62 +1,128 @@
 local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
 
-local function kick(msg)
-    local player = Players.LocalPlayer
-    if player then 
-        player:Kick(msg)
-    end
-    return false
-end
+-- BASE URL SAMA UNTUK SEMUA
+local BASE_URL = "http://151.240.0.25:3000"
+local VALIDATE_URL = BASE_URL .. "/validate"
+local SCRIPT_URL = BASE_URL .. "/script"  -- SAMA SERVER!
 
-local function validateAndLoad()
-    -- CEK APAKAH _G.script_key ADA DAN VALID
+local function validateKey()
     if not _G.script_key then
-        return kick("❌ Script key not set. Please set _G.script_key = 'YOUR_KEY'")
+        error("[Fyy Loader] _G.script_key belum di-set")
     end
-    
-    -- CEK FORMAT KEY (minimal 8 karakter)
-    if type(_G.script_key) ~= "string" or #_G.script_key < 8 then
-        return kick("❌ Invalid key format. Key must be at least 8 characters")
-    end
-    
+
     local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
-    local base = "http://151.240.0.25:3000"
-    
-    -- Validate
-    local url = base .. "/validate?key=" .. HttpService:UrlEncode(_G.script_key) .. "&hwid=" .. HttpService:UrlEncode(hwid)
-    local ok, res = pcall(game.HttpGet, game, url, true)
-    
-    if not ok or not res then
-        return kick("❌ Server error - Cannot connect to validation server")
+    local player = game.Players.LocalPlayer
+    local robloxId = player and player.UserId or 0
+    local placeId = game.PlaceId
+
+    -- Buat URL validasi
+    local url = string.format(
+        "%s?key=%s&hwid=%s&robloxId=%s&placeId=%s",
+        VALIDATE_URL,
+        HttpService:UrlEncode(_G.script_key),
+        HttpService:UrlEncode(hwid),
+        tostring(robloxId),
+        tostring(placeId)
+    )
+
+    -- Kirim request ke server validasi
+    local ok, response = pcall(function()
+        return game:HttpGet(url, true)  -- Async lebih aman
+    end)
+
+    -- Cek koneksi gagal
+    if not ok or not response or response == "" then
+        if player then
+            player:Kick("[Fyy Loader] ❌ Server offline / timeout.")
+        end
+        return false
     end
-    
-    local data = pcall(HttpService.JSONDecode, HttpService, res)
-    if not data or data.status ~= "ok" then
-        return kick("❌ Invalid or expired key")
+
+    -- Decode JSON response
+    local data
+    ok, _ = pcall(function()
+        data = HttpService:JSONDecode(response)
+    end)
+
+    if not ok or not data then
+        warn("[Fyy Loader] Response tidak valid:", response)
+        if player then
+            player:Kick("[Fyy Loader] ❌ Server response error.")
+        end
+        return false
     end
-    
-    -- Download
-    url = base .. "/script?key=" .. HttpService:UrlEncode(_G.script_key) .. "&hwid=" .. HttpService:UrlEncode(hwid)
-    ok, res = pcall(game.HttpGet, game, url, true)
-    
-    if not ok or not res then
-        return kick("❌ Failed to download script")
+
+    -- Cek status response
+    if data.status ~= "ok" then
+        if player then
+            player:Kick("[Fyy Loader] ❌ " .. (data.message or "Key invalid"))
+        end
+        return false
     end
-    
-    -- Execute
-    ok, err = pcall(loadstring, res)
-    if not ok then
-        return kick("❌ Script error: " .. tostring(err):sub(1, 100))
-    end
-    
+
+    print("[Fyy Loader] ✅ Validation OK:", data.code, data.message)
     return true
 end
 
 -- ================================
--- START EXECUTION WITH ERROR HANDLING
+-- MAIN EXECUTION
 -- ================================
-local success, errorMsg = pcall(validateAndLoad)
-if not success then
-    kick("❌ Loader error: " .. tostring(errorMsg))
+
+-- 1. Validasi key dulu
+local isValid = validateKey()
+if not isValid then
+    return  -- Stop kalo key invalid
 end
+
+print("[Fyy Loader] 🚀 Script premium mulai jalan untuk key:", _G.script_key)
+
+-- 2. Download dan execute script dari SERVER DENGAN KEY
+local success, scriptContent = pcall(function()
+    -- ⚠️ PERUBAHAN DISINI: TAMBAH PARAMETER key= DI URL
+    local downloadUrl = SCRIPT_URL .. "?key=" .. HttpService:UrlEncode(_G.script_key)
+    
+    -- Optional: Tambah HWID juga untuk extra security
+    local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
+    downloadUrl = downloadUrl .. "&hwid=" .. HttpService:UrlEncode(hwid)
+    return game:HttpGet(downloadUrl, true)
+end)
+
+if not success or not scriptContent then
+    local player = game.Players.LocalPlayer
+    if player then
+        -- Cek error message untuk debugging
+        local errorMsg = scriptContent or "Unknown error"
+        
+        if errorMsg:find("403") or errorMsg:find("Forbidden") then
+            player:Kick("[Fyy Loader] ❌ Akses ditolak. Key tidak valid atau expired.")
+        elseif errorMsg:find("404") then
+            player:Kick("[Fyy Loader] ❌ Script tidak ditemukan di server.")
+        else
+            player:Kick("[Fyy Loader] ❌ Gagal LOAD script: " .. errorMsg:sub(1, 100))
+        end
+    end
+    return
+end
+
+-- 3. Execute script utama
+
+local success, errorMsg = pcall(function()
+    loadstring(scriptContent)()
+end)
+
+if not success then
+    warn("[Fyy Loader] ❌ Error execute script:", errorMsg)
+    
+    -- Optional: Report error ke server untuk debugging
+    local player = game.Players.LocalPlayer
+    if player then
+        player:Kick("[Fyy Loader] ❌ Error load script. Silakan coba lagi.")
+    end
+else
+    print("[Fyy Loader] ✅ Script berhasil dijalankan!")
+end
+
+
+
+
+biar loadernya bersih dari print gimana ya tapi fungsi tetep sama
