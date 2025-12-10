@@ -6,7 +6,6 @@ local HttpService = game:GetService("HttpService")
 local BASE_URL = "http://151.240.0.25:3000"
 local VALIDATE_URL = BASE_URL .. "/validate"
 local SCRIPT_URL = BASE_URL .. "/script"
-local SECRET_HEADER = "FYY-20-05-2222ASD"
 
 -- ================================
 -- AUTO-KICK JIKA KEY TIDAK DI-SET
@@ -15,17 +14,13 @@ local player = game.Players.LocalPlayer
 
 if not _G.script_key then
     if player then
-        player:Kick([[Fyy Premium Loader
-❌ KEY TIDAK DI-SET!
-Cara pakai:
-1. _G.script_key = "KEY-ANDA"
-2. Execute script ini lagi]])
+        player:Kick("Fyy Loader\n❌ KEY TIDAK DI-SET!\n\nCara pakai:\n1. _G.script_key = \"KEY-ANDA\"\n2. Execute script ini lagi")
     end
     return
 end
 
 -- ================================
--- VALIDASI KEY (TANPA HEADERS)
+-- VALIDASI KEY
 -- ================================
 local function validateKey()
     local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
@@ -37,40 +32,34 @@ local function validateKey()
         HttpService:UrlEncode(hwid)
     )
 
-    print("🔗 [Validate] URL:", url)
+    print("[Fyy] 🔗 Validating...")
 
     local success, response = pcall(function()
-        return game:HttpGet(url, false)  -- NO CACHE
+        return game:HttpGet(url, false)
     end)
 
     if not success then
-        print("❌ [Validate] Error:", response)
+        print("[Fyy] ❌ Server error")
         if player then player:Kick("❌ Server offline") end
-        return false
+        return false, nil
     end
 
     local data = HttpService:JSONDecode(response)
     
     if data.status ~= "ok" then
-        print("❌ [Validate] Failed:", data.code)
+        print("[Fyy] ❌ Validation failed:", data.code)
         if player then player:Kick("❌ " .. data.message) end
-        return false
+        return false, nil
     end
 
-    print("✅ [Validate] Success:", data.code)
+    print("[Fyy] ✅ Validation OK")
     return true, hwid
 end
 
 -- ================================
--- DOWNLOAD SCRIPT (DENGAN HEADERS YANG BENAR)
+-- DOWNLOAD SCRIPT
 -- ================================
 local function downloadScript(hwid)
-    -- Headers yang benar
-    local headers = {
-        ["X-Request-Source"] = SECRET_HEADER,
-        ["X-Auth-Token"] = hwid
-    }
-    
     local url = string.format(
         "%s?key=%s&hwid=%s",
         SCRIPT_URL,
@@ -78,36 +67,16 @@ local function downloadScript(hwid)
         HttpService:UrlEncode(hwid)
     )
     
-    print("🔗 [Download] URL:", url)
-    print("📨 [Download] Headers:")
-    for k, v in pairs(headers) do
-        print("  " .. k .. ": " .. v)
-    end
-    
-    -- CARA 1: Pakte dictionary (recommended)
-    local request = {
-        Url = url,
-        Headers = headers,
-        Method = "GET"
-    }
+    print("[Fyy] 📥 Downloading...")
     
     local success, response = pcall(function()
-        return game:HttpGet(request)
+        return game:HttpGet(url, false)
     end)
     
-    -- CARA 2: Atau pake format lama (jika cara 1 error)
     if not success then
-        print("⚠️ [Download] Method 1 failed, trying method 2...")
-        success, response = pcall(function()
-            -- Format: game:HttpGet(url, nocache, headers)
-            return game:HttpGet(url, false, headers)
-        end)
-    end
-    
-    if not success then
-        print("❌ [Download] Failed:", response)
+        print("[Fyy] ❌ Download failed")
     else
-        print("✅ [Download] Success, size:", #response, "bytes")
+        print("[Fyy] ✅ Download success")
     end
     
     return success, response
@@ -116,19 +85,17 @@ end
 -- ================================
 -- MAIN EXECUTION
 -- ================================
-print("🚀 FYY LOADER STARTING...")
+print("🚀 Fyy Loader Starting...")
 
--- 1. Validasi key (dapatkan HWID juga)
+-- 1. Validasi key
 local isValid, hwid = validateKey()
 if not isValid then return end
 
-print("📟 HWID:", hwid)
-
--- 2. Download script dengan headers
+-- 2. Download script
 local success, scriptContent = downloadScript(hwid)
 
 if not success or not scriptContent then
-    if player then player:Kick("❌ Gagal download script") end
+    if player then player:Kick("❌ Failed to download script") end
     return
 end
 
@@ -138,8 +105,8 @@ local execSuccess, errorMsg = pcall(function()
 end)
 
 if not execSuccess then
-    print("❌ [Execute] Error:", errorMsg)
+    print("[Fyy] ❌ Script error:", errorMsg)
     if player then player:Kick("❌ Script error") end
 else
-    print("✅ SCRIPT LOADED SUCCESSFULLY!")
+    print("[Fyy] ✅ Script loaded successfully!")
 end
