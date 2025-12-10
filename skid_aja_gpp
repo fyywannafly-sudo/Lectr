@@ -76,24 +76,51 @@ end
 
 print("[Fyy Loader] 🚀 Script premium mulai jalan untuk key:", _G.script_key)
 
--- 2. Download dan execute script dari SERVER YANG SAMA
+-- 2. Download dan execute script dari SERVER DENGAN KEY
 local success, scriptContent = pcall(function()
-    return game:HttpGet(SCRIPT_URL, true)
+    -- ⚠️ PERUBAHAN DISINI: TAMBAH PARAMETER key= DI URL
+    local downloadUrl = SCRIPT_URL .. "?key=" .. HttpService:UrlEncode(_G.script_key)
+    
+    -- Optional: Tambah HWID juga untuk extra security
+    local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
+    downloadUrl = downloadUrl .. "&hwid=" .. HttpService:UrlEncode(hwid)
+    
+    print("[Fyy Loader] 📥 Download script dari:", downloadUrl)
+    return game:HttpGet(downloadUrl, true)
 end)
 
 if not success or not scriptContent then
     local player = game.Players.LocalPlayer
     if player then
-        player:Kick("[Fyy Loader] ❌ Gagal download script.")
+        -- Cek error message untuk debugging
+        local errorMsg = scriptContent or "Unknown error"
+        
+        if errorMsg:find("403") or errorMsg:find("Forbidden") then
+            player:Kick("[Fyy Loader] ❌ Akses ditolak. Key tidak valid atau expired.")
+        elseif errorMsg:find("404") then
+            player:Kick("[Fyy Loader] ❌ Script tidak ditemukan di server.")
+        else
+            player:Kick("[Fyy Loader] ❌ Gagal download script: " .. errorMsg:sub(1, 100))
+        end
     end
     return
 end
 
 -- 3. Execute script utama
+print("[Fyy Loader] ✅ Script berhasil didownload, executing...")
+
 local success, errorMsg = pcall(function()
     loadstring(scriptContent)()
 end)
 
 if not success then
     warn("[Fyy Loader] ❌ Error execute script:", errorMsg)
+    
+    -- Optional: Report error ke server untuk debugging
+    local player = game.Players.LocalPlayer
+    if player then
+        player:Kick("[Fyy Loader] ❌ Error load script. Silakan coba lagi.")
+    end
+else
+    print("[Fyy Loader] ✅ Script berhasil dijalankan!")
 end
