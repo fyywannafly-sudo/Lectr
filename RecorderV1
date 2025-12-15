@@ -1,0 +1,834 @@
+-- LocalScript (StarterPlayerScripts)
+-- FIXED: Save All membuat file terpisah sesuai nama track
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+
+-- ====== Config ======
+local recordIntervalDefault = 0.1
+local replayDelayDefault = 0.1
+local saveFolder = "MT_RecordedTracks" -- Folder untuk semua track
+local floatHeight = 0 -- Tambahan Y saat pause navigation
+
+-- State
+local recording = false
+local paused = false
+local isBrowsing = false
+local currentTrack = {}
+local savedTracks = {}
+local recordConn = nil
+local replayDelay = replayDelayDefault
+
+-- Pause navigation
+local browsingIndex = nil
+local browsingTrack = {}
+
+-- ====== Storage ======
+local function canUseFile()
+    return type(isfile) == "function" and type(readfile) == "function" and type(writefile) == "function"
+end
+
+-- Buat folder jika belum ada
+local function ensureFolder()
+    if not canUseFile() then return end
+    if not isfolder(saveFolder) then
+        makefolder(saveFolder)
+    end
+end
+
+local function loadSavedTracks()
+    if not canUseFile() then return end
+    
+    ensureFolder()
+    
+    savedTracks = {} -- Reset dulu
+    
+    -- Coba load dari file index
+    local indexFile = saveFolder .. "/_index.json"
+    if isfile(indexFile) then
+        local ok, data = pcall(function()
+            return HttpService:JSONDecode(readfile(indexFile))
+        end)
+        if ok and type(data) == "table" then
+            for _,entry in ipairs(data) do
+                table.insert(savedTracks, { 
+                    name = entry.name or "Track", 
+                    points = {} -- Kosongkan dulu
+                })
+            end
+        end
+    end
+end
+
+local function saveTrackToFile(trackName, points)
+    if not canUseFile() then return false end
+    
+    ensureFolder()
+    
+    -- Bersihkan nama file
+    local cleanName = trackName:gsub("[^%w%s%-_]", ""):gsub("%s+", "_")
+    if cleanName == "" then
+        cleanName = "Track_" .. tostring(os.time())
+    end
+    
+    local filename = saveFolder .. "/" .. cleanName .. ".json"
+    
+    -- Convert points ke format JSON
+    local pts = {}
+    for _,v in ipairs(points) do
+        table.insert(pts, { v.X, v.Y, v.Z })
+    end
+    
+    local data = {
+        name = trackName,
+        points = pts,
+        timestamp = os.time(),
+        pointCount = #points
+    }
+    
+    local success, err = pcall(function()
+        writefile(filename, HttpService:JSONEncode(data))
+    end)
+    
+    return success, filename
+end
+
+local function saveIndexFile()
+    if not canUseFile() then return end
+    
+    local indexData = {}
+    for _,entry in ipairs(savedTracks) do
+        table.insert(indexData, {
+            name = entry.name,
+            pointCount = #entry.points,
+            timestamp = os.time()
+        })
+    end
+    
+    pcall(function()
+        writefile(saveFolder .. "/_index.json", HttpService:JSONEncode(indexData))
+    end)
+end
+
+loadSavedTracks()
+
+-- ====== Helpers ======
+local function getHRP()
+    local c = player.Character or player.CharacterAdded:Wait()
+    return c:WaitForChild("HumanoidRootPart")
+end
+
+local function teleportToPosition(pos, floating)
+    if player.Character and getHRP().Parent then
+        local targetPos = pos
+        if floating then
+            targetPos = Vector3.new(pos.X, pos.Y + floatHeight, pos.Z)
+        end
+        getHRP().CFrame = CFrame.new(targetPos)
+    end
+end
+
+local function stopRecording()
+    if recordConn then 
+        recordConn:Disconnect() 
+        recordConn = nil 
+    end
+    recording = false
+end
+
+-- ====== Build UI ======
+local CoreGui = game:GetService("CoreGui")
+local parentGui = CoreGui
+local okCore = pcall(function() return CoreGui.Name end)
+if not okCore then
+    parentGui = player:WaitForChild("PlayerGui")
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MT_Recorder_Final"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentGui
+
+-- Main container
+local Main = Instance.new("Frame", ScreenGui)
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 260, 0.75, 0)
+Main.Position = UDim2.new(1, -265, 0.125, 0)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.BorderSizePixel = 0
+Main.Active = true
+
+local mainCorner = Instance.new("UICorner", Main)
+mainCorner.CornerRadius = UDim.new(0, 8)
+
+local mainShadow = Instance.new("UIStroke", Main)
+mainShadow.Color = Color3.fromRGB(40, 40, 40)
+mainShadow.Thickness = 2
+mainShadow.Transparency = 0.7
+
+-- Header
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 36)
+Header.Position = UDim2.new(0, 0, 0, 0)
+Header.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+
+local headerCorner = Instance.new("UICorner", Header)
+headerCorner.CornerRadius = UDim.new(0, 8)
+
+local title = Instance.new("TextLabel", Header)
+title.Size = UDim2.new(0.7, 0, 1, 0)
+title.Position = UDim2.new(0.05, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(230, 230, 230)
+title.Text = "🎯 MT Recorder"
+title.TextSize = 16
+title.Font = Enum.Font.GothamMedium
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseBtn = Instance.new("TextButton", Header)
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -32, 0, 4)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+CloseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+CloseBtn.Text = "×"
+CloseBtn.TextSize = 20
+CloseBtn.Font = Enum.Font.GothamBold
+
+local closeCorner = Instance.new("UICorner", CloseBtn)
+closeCorner.CornerRadius = UDim.new(0, 6)
+
+-- Content area
+local Content = Instance.new("ScrollingFrame", Main)
+Content.Size = UDim2.new(1, -10, 1, -44)
+Content.Position = UDim2.new(0, 5, 0, 40)
+Content.BackgroundTransparency = 1
+Content.ScrollBarThickness = 4
+Content.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Content.ScrollingDirection = Enum.ScrollingDirection.Y
+
+local ContentLayout = Instance.new("UIListLayout", Content)
+ContentLayout.Padding = UDim.new(0, 10)
+ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- ====== CONTROL SECTIONS ======
+-- Section: Recording Controls
+local recSection = Instance.new("Frame", Content)
+recSection.Size = UDim2.new(0.96, 0, 0, 130)
+recSection.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+recSection.BackgroundTransparency = 0.3
+
+local recCorner = Instance.new("UICorner", recSection)
+recCorner.CornerRadius = UDim.new(0, 8)
+
+local recStroke = Instance.new("UIStroke", recSection)
+recStroke.Color = Color3.fromRGB(50, 50, 50)
+recStroke.Thickness = 1
+
+local recTitle = Instance.new("TextLabel", recSection)
+recTitle.Size = UDim2.new(1, 0, 0, 24)
+recTitle.Position = UDim2.new(0, 0, 0, 4)
+recTitle.BackgroundTransparency = 1
+recTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+recTitle.Text = "● RECORDING"
+recTitle.TextSize = 13
+recTitle.Font = Enum.Font.GothamMedium
+
+-- TOMBOL RECORD/CONTINUE (BERUBAH SAAT PAUSE)
+local btnRecordContinue = Instance.new("TextButton", recSection)
+btnRecordContinue.Size = UDim2.new(0.31, -3, 0, 30)
+btnRecordContinue.Position = UDim2.new(0.02, 0, 0, 32)
+btnRecordContinue.Text = "● Record"
+btnRecordContinue.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnRecordContinue.TextSize = 13
+btnRecordContinue.Font = Enum.Font.GothamMedium
+btnRecordContinue.BackgroundColor3 = Color3.fromRGB(40, 160, 40)
+btnRecordContinue.Name = "RecordContinueBtn"
+
+local rcBtnCorner = Instance.new("UICorner", btnRecordContinue)
+rcBtnCorner.CornerRadius = UDim.new(0, 6)
+
+local btnStop = Instance.new("TextButton", recSection)
+btnStop.Size = UDim2.new(0.31, -3, 0, 30)
+btnStop.Position = UDim2.new(0.345, 0, 0, 32)
+btnStop.Text = "■ Stop"
+btnStop.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnStop.TextSize = 13
+btnStop.Font = Enum.Font.GothamMedium
+btnStop.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+
+local stopBtnCorner = Instance.new("UICorner", btnStop)
+stopBtnCorner.CornerRadius = UDim.new(0, 6)
+
+local btnPause = Instance.new("TextButton", recSection)
+btnPause.Size = UDim2.new(0.31, -3, 0, 30)
+btnPause.Position = UDim2.new(0.67, 0, 0, 32)
+btnPause.Text = "⏸ Pause"
+btnPause.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnPause.TextSize = 13
+btnPause.Font = Enum.Font.GothamMedium
+btnPause.BackgroundColor3 = Color3.fromRGB(220, 140, 40)
+
+local pauseBtnCorner = Instance.new("UICorner", btnPause)
+pauseBtnCorner.CornerRadius = UDim.new(0, 6)
+
+-- Navigation section (muncul saat pause)
+local navSection = Instance.new("Frame", recSection)
+navSection.Size = UDim2.new(0.96, 0, 0, 30)
+navSection.Position = UDim2.new(0.02, 0, 0, 70)
+navSection.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+navSection.Visible = false
+
+local navCorner = Instance.new("UICorner", navSection)
+navCorner.CornerRadius = UDim.new(0, 6)
+
+local btnPrev = Instance.new("TextButton", navSection)
+btnPrev.Size = UDim2.new(0.48, -2, 0.8, 0)
+btnPrev.Position = UDim2.new(0.01, 0, 0.1, 0)
+btnPrev.Text = "◀ Previous"
+btnPrev.TextColor3 = Color3.fromRGB(220, 220, 220)
+btnPrev.TextSize = 12
+btnPrev.Font = Enum.Font.GothamMedium
+btnPrev.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+
+local prevCorner = Instance.new("UICorner", btnPrev)
+prevCorner.CornerRadius = UDim.new(0, 4)
+
+local btnNext = Instance.new("TextButton", navSection)
+btnNext.Size = UDim2.new(0.48, -2, 0.8, 0)
+btnNext.Position = UDim2.new(0.51, 0, 0.1, 0)
+btnNext.Text = "Next ▶"
+btnNext.TextColor3 = Color3.fromRGB(220, 220, 220)
+btnNext.TextSize = 12
+btnNext.Font = Enum.Font.GothamMedium
+btnNext.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+
+local nextCorner = Instance.new("UICorner", btnNext)
+nextCorner.CornerRadius = UDim.new(0, 4)
+
+-- Info label
+local infoLabel = Instance.new("TextLabel", recSection)
+infoLabel.Size = UDim2.new(1, 0, 0, 20)
+infoLabel.Position = UDim2.new(0, 0, 1, -24)
+infoLabel.BackgroundTransparency = 1
+infoLabel.TextColor3 = Color3.fromRGB(150, 220, 150)
+infoLabel.Text = "Ready. 0 points"
+infoLabel.TextSize = 12
+infoLabel.Font = Enum.Font.Gotham
+
+-- Section: Save Track
+local saveSection = Instance.new("Frame", Content)
+saveSection.Size = UDim2.new(0.96, 0, 0, 120)
+saveSection.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+saveSection.BackgroundTransparency = 0.3
+
+local saveCorner = Instance.new("UICorner", saveSection)
+saveCorner.CornerRadius = UDim.new(0, 8)
+
+local saveStroke = Instance.new("UIStroke", saveSection)
+saveStroke.Color = Color3.fromRGB(50, 50, 50)
+saveStroke.Thickness = 1
+
+local saveTitle = Instance.new("TextLabel", saveSection)
+saveTitle.Size = UDim2.new(1, 0, 0, 24)
+saveTitle.Position = UDim2.new(0, 0, 0, 4)
+saveTitle.BackgroundTransparency = 1
+saveTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+saveTitle.Text = "💾 SAVE TRACK"
+saveTitle.TextSize = 13
+saveTitle.Font = Enum.Font.GothamMedium
+
+local nameBox = Instance.new("TextBox", saveSection)
+nameBox.Size = UDim2.new(0.96, 0, 0, 28)
+nameBox.Position = UDim2.new(0.02, 0, 0, 32)
+nameBox.PlaceholderText = "Enter track name..."
+nameBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+nameBox.ClearTextOnFocus = false
+nameBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+nameBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+nameBox.TextSize = 13
+nameBox.Font = Enum.Font.Gotham
+
+local nameCorner = Instance.new("UICorner", nameBox)
+nameCorner.CornerRadius = UDim.new(0, 6)
+
+-- Baris button: Save Current & Save All
+local buttonRow = Instance.new("Frame", saveSection)
+buttonRow.Size = UDim2.new(0.96, 0, 0, 28)
+buttonRow.Position = UDim2.new(0.02, 0, 0, 66)
+buttonRow.BackgroundTransparency = 1
+
+local btnSave = Instance.new("TextButton", buttonRow)
+btnSave.Size = UDim2.new(0.48, -2, 1, 0)
+btnSave.Position = UDim2.new(0, 0, 0, 0)
+btnSave.Text = "💾 Save Current"
+btnSave.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnSave.TextSize = 12
+btnSave.Font = Enum.Font.GothamMedium
+btnSave.BackgroundColor3 = Color3.fromRGB(50, 100, 180)
+
+local saveBtnCorner = Instance.new("UICorner", btnSave)
+saveBtnCorner.CornerRadius = UDim.new(0, 6)
+
+-- TOMBOL BARU: Save All Tracks to File
+local btnSaveAll = Instance.new("TextButton", buttonRow)
+btnSaveAll.Size = UDim2.new(0.48, -2, 1, 0)
+btnSaveAll.Position = UDim2.new(0.52, 0, 0, 0)
+btnSaveAll.Text = "📁 Save All"
+btnSaveAll.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnSaveAll.TextSize = 12
+btnSaveAll.Font = Enum.Font.GothamMedium
+btnSaveAll.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+
+local saveAllCorner = Instance.new("UICorner", btnSaveAll)
+saveAllCorner.CornerRadius = UDim.new(0, 6)
+
+-- Section: Saved Tracks
+local tracksSection = Instance.new("Frame", Content)
+tracksSection.Size = UDim2.new(0.96, 0, 0, 180)
+tracksSection.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+tracksSection.BackgroundTransparency = 0.3
+
+local tracksCorner = Instance.new("UICorner", tracksSection)
+tracksCorner.CornerRadius = UDim.new(0, 8)
+
+local tracksStroke = Instance.new("UIStroke", tracksSection)
+tracksStroke.Color = Color3.fromRGB(50, 50, 50)
+tracksStroke.Thickness = 1
+
+local tracksTitle = Instance.new("TextLabel", tracksSection)
+tracksTitle.Size = UDim2.new(1, 0, 0, 24)
+tracksTitle.Position = UDim2.new(0, 0, 0, 4)
+tracksTitle.BackgroundTransparency = 1
+tracksTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+tracksTitle.Text = "📁 SAVED TRACKS"
+tracksTitle.TextSize = 13
+tracksTitle.Font = Enum.Font.GothamMedium
+
+local trackScroll = Instance.new("ScrollingFrame", tracksSection)
+trackScroll.Size = UDim2.new(0.96, 0, 0, 148)
+trackScroll.Position = UDim2.new(0.02, 0, 0, 32)
+trackScroll.BackgroundTransparency = 1
+trackScroll.ScrollBarThickness = 4
+trackScroll.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+trackScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local trackLayout = Instance.new("UIListLayout", trackScroll)
+trackLayout.Padding = UDim.new(0, 6)
+
+-- ====== Mini Toggle Button ======
+local MiniBtn = Instance.new("TextButton", ScreenGui)
+MiniBtn.Name = "MiniBtn"
+MiniBtn.Size = UDim2.new(0, 48, 0, 48)
+MiniBtn.Position = UDim2.new(1, -55, 0.5, -24)
+MiniBtn.Text = "🎯\nMTR"
+MiniBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MiniBtn.TextSize = 12
+MiniBtn.Font = Enum.Font.GothamMedium
+MiniBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MiniBtn.Visible = false
+MiniBtn.Active = true
+
+local miniCorner = Instance.new("UICorner", MiniBtn)
+miniCorner.CornerRadius = UDim.new(0, 10)
+
+local miniShadow = Instance.new("UIStroke", MiniBtn)
+miniShadow.Color = Color3.fromRGB(50, 50, 50)
+miniShadow.Thickness = 1
+
+-- ====== FUNCTIONS ======
+local function updateRecordButton()
+    if paused and isBrowsing then
+        btnRecordContinue.Text = "▶ Continue"
+        btnRecordContinue.BackgroundColor3 = Color3.fromRGB(40, 140, 200)
+    else
+        btnRecordContinue.Text = "● Record"
+        btnRecordContinue.BackgroundColor3 = Color3.fromRGB(40, 160, 40)
+    end
+end
+
+local function refreshSavedList()
+    for _,c in ipairs(trackScroll:GetChildren()) do
+        if c:IsA("Frame") then c:Destroy() end
+    end
+
+    for idx,entry in ipairs(savedTracks) do
+        local trackItem = Instance.new("Frame", trackScroll)
+        trackItem.Size = UDim2.new(1, 0, 0, 38)
+        trackItem.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        
+        local itemCorner = Instance.new("UICorner", trackItem)
+        itemCorner.CornerRadius = UDim.new(0, 6)
+        
+        local trackName = Instance.new("TextLabel", trackItem)
+        trackName.Size = UDim2.new(0.6, 0, 0.6, 0)
+        trackName.Position = UDim2.new(0.03, 0, 0.1, 0)
+        trackName.BackgroundTransparency = 1
+        trackName.TextColor3 = Color3.fromRGB(220, 220, 220)
+        trackName.Text = entry.name
+        trackName.TextSize = 12
+        trackName.Font = Enum.Font.GothamMedium
+        trackName.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local ptsLabel = Instance.new("TextLabel", trackItem)
+        ptsLabel.Size = UDim2.new(0.3, 0, 0.4, 0)
+        ptsLabel.Position = UDim2.new(0.03, 0, 0.6, 0)
+        ptsLabel.BackgroundTransparency = 1
+        ptsLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        ptsLabel.Text = #entry.points .. " points"
+        ptsLabel.TextSize = 10
+        ptsLabel.Font = Enum.Font.Gotham
+        
+        local btnReplay = Instance.new("TextButton", trackItem)
+        btnReplay.Size = UDim2.new(0.12, 0, 0.7, 0)
+        btnReplay.Position = UDim2.new(0.65, 0, 0.15, 0)
+        btnReplay.Text = "▶ Play"
+        btnReplay.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btnReplay.TextSize = 11
+        btnReplay.Font = Enum.Font.GothamMedium
+        btnReplay.BackgroundColor3 = Color3.fromRGB(60, 140, 200)
+        
+        local replayCorner = Instance.new("UICorner", btnReplay)
+        replayCorner.CornerRadius = UDim.new(0, 4)
+        
+        local btnDelete = Instance.new("TextButton", trackItem)
+        btnDelete.Size = UDim2.new(0.12, 0, 0.7, 0)
+        btnDelete.Position = UDim2.new(0.83, 0, 0.15, 0)
+        btnDelete.Text = "✕ Del"
+        btnDelete.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btnDelete.TextSize = 11
+        btnDelete.Font = Enum.Font.GothamMedium
+        btnDelete.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        
+        local deleteCorner = Instance.new("UICorner", btnDelete)
+        deleteCorner.CornerRadius = UDim.new(0, 4)
+        
+        btnReplay.MouseButton1Click:Connect(function()
+            coroutine.wrap(function()
+                for _,pt in ipairs(entry.points) do
+                    teleportToPosition(pt, false)
+                    task.wait(replayDelay)
+                end
+            end)()
+        end)
+        
+        btnDelete.MouseButton1Click:Connect(function()
+            table.remove(savedTracks, idx)
+            saveIndexFile()
+            refreshSavedList()
+        end)
+    end
+end
+
+-- ====== PAUSE NAVIGATION ======
+local function startBrowsing()
+    if #currentTrack < 1 then return end
+    
+    browsingTrack = table.clone(currentTrack)
+    browsingIndex = #browsingTrack
+    
+    isBrowsing = true
+    navSection.Visible = true
+    updateRecordButton()
+    
+    infoLabel.Text = ("PAUSED - Point %d/%d (Floating)"):format(browsingIndex, #browsingTrack)
+    
+    if browsingTrack[browsingIndex] then
+        teleportToPosition(browsingTrack[browsingIndex], true)
+    end
+end
+
+local function navigateBack()
+    if not isBrowsing or browsingIndex <= 1 then return end
+    
+    browsingIndex = browsingIndex - 1
+    infoLabel.Text = ("PAUSED - Point %d/%d (Floating)"):format(browsingIndex, #browsingTrack)
+    
+    if browsingTrack[browsingIndex] then
+        teleportToPosition(browsingTrack[browsingIndex], true)
+    end
+end
+
+local function navigateNext()
+    if not isBrowsing or browsingIndex >= #browsingTrack then return end
+    
+    browsingIndex = browsingIndex + 1
+    infoLabel.Text = ("PAUSED - Point %d/%d (Floating)"):format(browsingIndex, #browsingTrack)
+    
+    if browsingTrack[browsingIndex] then
+        teleportToPosition(browsingTrack[browsingIndex], true)
+    end
+end
+
+local function continueFromBrowsing()
+    if not isBrowsing then return end
+    
+    local newTrack = {}
+    for i = 1, browsingIndex do
+        if browsingTrack[i] then
+            table.insert(newTrack, browsingTrack[i])
+        end
+    end
+    
+    currentTrack = newTrack
+    isBrowsing = false
+    browsingTrack = {}
+    browsingIndex = nil
+    
+    navSection.Visible = false
+    paused = false
+    updateRecordButton()
+    
+    recording = true
+    infoLabel.Text = ("Recording... %d points"):format(#currentTrack)
+    
+    local acc = 0
+    recordConn = RunService.Heartbeat:Connect(function(dt)
+        acc = acc + dt
+        if acc >= recordIntervalDefault then
+            acc = 0
+            if player.Character and player.Character.Parent then
+                table.insert(currentTrack, getHRP().Position)
+                infoLabel.Text = ("Recording... %d points"):format(#currentTrack)
+            end
+        end
+    end)
+end
+
+-- ====== SAVE ALL TRACKS ======
+local function saveAllTracksToFiles()
+    if not canUseFile() then
+        infoLabel.Text = "File functions not available!"
+        return false
+    end
+    
+    if #savedTracks == 0 then
+        infoLabel.Text = "No tracks to save!"
+        return false
+    end
+    
+    ensureFolder()
+    
+    local savedCount = 0
+    local failedCount = 0
+    
+    for _,track in ipairs(savedTracks) do
+        if #track.points > 0 then
+            local success, filename = saveTrackToFile(track.name, track.points)
+            if success then
+                savedCount = savedCount + 1
+                print("[MT Recorder] Saved track to:", filename)
+            else
+                failedCount = failedCount + 1
+                warn("[MT Recorder] Failed to save:", track.name)
+            end
+        end
+    end
+    
+    -- Save index file
+    saveIndexFile()
+    
+    if savedCount > 0 then
+        infoLabel.Text = ("Saved %d track(s) to files!"):format(savedCount)
+        if failedCount > 0 then
+            infoLabel.Text = infoLabel.Text .. (" (%d failed)"):format(failedCount)
+        end
+        return true
+    else
+        infoLabel.Text = "Failed to save any tracks!"
+        return false
+    end
+end
+
+-- ====== BUTTON EVENTS ======
+btnRecordContinue.MouseButton1Click:Connect(function()
+    if paused and isBrowsing then
+        continueFromBrowsing()
+    elseif not recording then
+        recording = true
+        paused = false
+        isBrowsing = false
+        
+        infoLabel.Text = "Recording... " .. (#currentTrack) .. " points"
+        
+        local acc = 0
+        recordConn = RunService.Heartbeat:Connect(function(dt)
+            acc = acc + dt
+            if acc >= recordIntervalDefault then
+                acc = 0
+                if player.Character and player.Character.Parent then
+                    table.insert(currentTrack, getHRP().Position)
+                    infoLabel.Text = ("Recording... %d points"):format(#currentTrack)
+                end
+            end
+        end)
+    end
+end)
+
+btnStop.MouseButton1Click:Connect(function()
+    stopRecording()
+    
+    isBrowsing = false
+    paused = false
+    navSection.Visible = false
+    updateRecordButton()
+    
+    infoLabel.Text = ("Stopped: %d points"):format(#currentTrack)
+end)
+
+btnPause.MouseButton1Click:Connect(function()
+    if not recording then return end
+    
+    stopRecording()
+    paused = true
+    
+    infoLabel.Text = ("PAUSED: %d points"):format(#currentTrack)
+    startBrowsing()
+end)
+
+btnPrev.MouseButton1Click:Connect(function()
+    navigateBack()
+end)
+
+btnNext.MouseButton1Click:Connect(function()
+    navigateNext()
+end)
+
+btnSave.MouseButton1Click:Connect(function()
+    if #currentTrack < 2 then
+        infoLabel.Text = "Need at least 2 points!"
+        return
+    end
+    local name = nameBox.Text
+    if not name or name:match("^%s*$") then
+        name = "Track_" .. tostring(os.time())
+    end
+    
+    -- Tambahkan ke memory
+    local newEntry = { 
+        name = name, 
+        points = table.clone(currentTrack) 
+    }
+    table.insert(savedTracks, newEntry)
+    
+    -- Langsung save ke file
+    local success, filename = saveTrackToFile(name, currentTrack)
+    if success then
+        infoLabel.Text = "Saved: " .. name
+        print("[MT Recorder] Track saved to:", filename)
+    else
+        infoLabel.Text = "Failed to save file!"
+    end
+    
+    -- Save index
+    saveIndexFile()
+    
+    currentTrack = {}
+    nameBox.Text = ""
+    refreshSavedList()
+end)
+
+-- TOMBOL BARU: Save All Tracks to Files
+btnSaveAll.MouseButton1Click:Connect(function()
+    saveAllTracksToFiles()
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    MiniBtn.Visible = true
+end)
+
+MiniBtn.MouseButton1Click:Connect(function()
+    Main.Visible = true
+    MiniBtn.Visible = false
+end)
+
+-- ====== FIXED: DRAG MINIBTN ======
+local draggingMini = false
+local dragStartMini = nil
+local startPosMini = nil
+
+MiniBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingMini = true
+        dragStartMini = input.Position
+        startPosMini = MiniBtn.Position
+        
+        local connection
+        connection = input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                draggingMini = false
+                if connection then
+                    connection:Disconnect()
+                end
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingMini and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStartMini
+        MiniBtn.Position = UDim2.new(
+            startPosMini.X.Scale, startPosMini.X.Offset + delta.X,
+            startPosMini.Y.Scale, startPosMini.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Hotkeys
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.R and not recording and not paused then
+            btnRecordContinue:CaptureFocus(); btnRecordContinue:ReleaseFocus()
+        elseif input.KeyCode == Enum.KeyCode.S and (recording or paused) then
+            btnStop:CaptureFocus(); btnStop:ReleaseFocus()
+        elseif input.KeyCode == Enum.KeyCode.P and recording then
+            btnPause:CaptureFocus(); btnPause:ReleaseFocus()
+        elseif input.KeyCode == Enum.KeyCode.LeftBracket and paused and isBrowsing then
+            navigateBack()
+        elseif input.KeyCode == Enum.KeyCode.RightBracket and paused and isBrowsing then
+            navigateNext()
+        end
+    end
+end)
+
+-- Drag GUI dengan kanan
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+Main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not dragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- ====== INIT ======
+refreshSavedList()
+infoLabel.Text = "Ready. " .. (#currentTrack) .. " points"
+
+-- Create folder on startup
+if canUseFile() then
+    ensureFolder()
+end
