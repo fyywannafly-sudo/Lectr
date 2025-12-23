@@ -82,108 +82,108 @@ local function create(class, props)
     return obj
 end
 
--- GUI yang lebih kecil
+-- GUI yang SANGAT kecil
 local gui = create("ScreenGui", {Name = "HttpMonitor", Parent = game:GetService("CoreGui")})
 local main = create("Frame", {
-    Size = UDim2.new(0, 800, 0, 550), -- Ukuran lebih kecil
-    Position = UDim2.new(0.5, -400, 0.5, -275), 
+    Size = UDim2.new(0, 550, 0, 450), -- UKURAN KECIL BANGET
+    Position = UDim2.new(0.5, -325, 0.5, -225), 
     BackgroundColor3 = Color3.fromRGB(25, 25, 25), 
     BorderSizePixel = 0, 
     Parent = gui
 })
 
 local header = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 35), -- Header lebih pendek
+    Size = UDim2.new(1, 0, 0, 25), -- Header pendek
     BackgroundColor3 = Color3.fromRGB(35, 35, 35), 
     BorderSizePixel = 0, 
     Parent = main
 })
 
 local title = create("TextLabel", {
-    Size = UDim2.new(1, -300, 1, 0), 
-    Position = UDim2.new(0, 10, 0, 0),
+    Size = UDim2.new(0.5, 0, 1, 0), 
+    Position = UDim2.new(0, 5, 0, 0),
     BackgroundTransparency = 1, 
     TextColor3 = Color3.new(1, 1, 1), 
-    Font = Enum.Font.GothamBold,
-    TextSize = 14, 
+    Font = Enum.Font.Gotham,
+    TextSize = 12, 
     TextXAlignment = Enum.TextXAlignment.Left, 
     Text = "HTTP Monitor", 
     Parent = header
 })
 
--- Panel tombol header yang lebih kecil
+-- Panel tombol header yang minimalis
 local buttonPanel = create("Frame", {
-    Size = UDim2.new(0, 290, 1, 0),
-    Position = UDim2.new(1, -295, 0, 0),
+    Size = UDim2.new(0.5, -5, 1, 0),
+    Position = UDim2.new(0.5, 5, 0, 0),
     BackgroundTransparency = 1,
     Parent = header
 })
 
 local interceptBtn = create("TextButton", {
-    Size = UDim2.new(0, 80, 0, 24), 
-    Position = UDim2.new(0, 0, 0.5, -12),
+    Size = UDim2.new(0.25, -2, 0, 22), 
+    Position = UDim2.new(0, 0, 0.5, -11),
     BackgroundColor3 = Color3.fromRGB(60, 60, 60), 
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Gotham,
-    TextSize = 11, 
-    Text = "Intercept: OFF", 
+    TextSize = 10, 
+    Text = "INT: OFF", 
     BorderSizePixel = 0, 
     Parent = buttonPanel
 })
 
 local clearBtn = create("TextButton", {
-    Size = UDim2.new(0, 60, 0, 24), 
-    Position = UDim2.new(0, 85, 0.5, -12),
+    Size = UDim2.new(0.25, -2, 0, 22), 
+    Position = UDim2.new(0.25, 2, 0.5, -11),
     BackgroundColor3 = Color3.fromRGB(60, 60, 60), 
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Gotham,
-    TextSize = 11, 
+    TextSize = 10, 
     Text = "Clear", 
     BorderSizePixel = 0, 
     Parent = buttonPanel
 })
 
 local saveBtn = create("TextButton", {
-    Size = UDim2.new(0, 60, 0, 24), 
-    Position = UDim2.new(0, 150, 0.5, -12),
+    Size = UDim2.new(0.25, -2, 0, 22), 
+    Position = UDim2.new(0.5, 2, 0.5, -11),
     BackgroundColor3 = Color3.fromRGB(60, 60, 60), 
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Gotham,
-    TextSize = 11, 
+    TextSize = 10, 
     Text = "Save", 
     BorderSizePixel = 0, 
     Parent = buttonPanel
 })
 
 local toggleBtn = create("TextButton", {
-    Size = UDim2.new(0, 60, 0, 24), 
-    Position = UDim2.new(0, 215, 0.5, -12),
+    Size = UDim2.new(0.25, 0, 0, 22), 
+    Position = UDim2.new(0.75, 2, 0.5, -11),
     BackgroundColor3 = Color3.fromRGB(60, 60, 60), 
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Gotham,
-    TextSize = 11, 
+    TextSize = 10, 
     Text = "Hide", 
     BorderSizePixel = 0, 
     Parent = buttonPanel
 })
 
--- Panel list request yang lebih kecil
+-- Panel list request yang kecil
 local listScroll = create("ScrollingFrame", {
-    Size = UDim2.new(0, 250, 1, -40), 
-    Position = UDim2.new(0, 5, 0, 40),
+    Size = UDim2.new(0, 180, 1, -40), 
+    Position = UDim2.new(0, 5, 0, 35),
     BackgroundColor3 = Color3.fromRGB(30, 30, 30), 
-    ScrollBarThickness = 6,
+    ScrollBarThickness = 4,
     BorderSizePixel = 0, 
     Parent = main
 })
 
 local requestCountLabel = create("TextLabel", {
-    Size = UDim2.new(0, 250, 0, 18),
-    Position = UDim2.new(0, 5, 1, -20),
+    Size = UDim2.new(0, 180, 0, 15),
+    Position = UDim2.new(0, 5, 1, -15),
     BackgroundColor3 = Color3.fromRGB(40, 40, 40),
     TextColor3 = Color3.new(1, 1, 1),
     Font = Enum.Font.Gotham,
-    TextSize = 11,
+    TextSize = 10,
     Text = "Requests: 0",
     TextXAlignment = Enum.TextXAlignment.Center,
     BorderSizePixel = 0,
@@ -191,67 +191,67 @@ local requestCountLabel = create("TextLabel", {
 })
 
 local tabContainer = create("Frame", {
-    Size = UDim2.new(1, -265, 0, 30), 
-    Position = UDim2.new(0, 260, 0, 40),
+    Size = UDim2.new(1, -195, 0, 20), -- 195 = 180 + 15 margin
+    Position = UDim2.new(0, 190, 0, 35), -- 190 = 180 + 10 margin
     BackgroundColor3 = Color3.fromRGB(30, 30, 30), 
     BorderSizePixel = 0, 
     Parent = main
 })
 
 local requestTab = create("TextButton", {
-    Size = UDim2.new(0.5, -2, 1, 0), 
+    Size = UDim2.new(0.5, -1, 1, 0), 
     BackgroundColor3 = Color3.fromRGB(50, 50, 50),
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Gotham, 
-    TextSize = 12, 
-    Text = "Request",
+    TextSize = 10, 
+    Text = "Req",
     BorderSizePixel = 0, 
     Parent = tabContainer
 })
 
 local responseTab = create("TextButton", {
-    Size = UDim2.new(0.5, -2, 1, 0), 
-    Position = UDim2.new(0.5, 2, 0, 0),
+    Size = UDim2.new(0.5, -1, 1, 0), 
+    Position = UDim2.new(0.5, 1, 0, 0),
     BackgroundColor3 = Color3.fromRGB(40, 40, 40), 
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Gotham,
-    TextSize = 12, 
-    Text = "Response", 
+    TextSize = 10, 
+    Text = "Resp", 
     BorderSizePixel = 0, 
     Parent = tabContainer
 })
 
--- Detail panel yang lebih kecil
-local detailScroll = create("ScrollingFrame", {
-    Size = UDim2.new(1, -265, 1, -110), 
-    Position = UDim2.new(0, 260, 0, 75),
+-- GANTI INI:
+local listScroll = create("ScrollingFrame", {
+    Size = UDim2.new(0, 200, 1, -40), -- LEBAR LIST
     BackgroundColor3 = Color3.fromRGB(20, 20, 20), 
-    ScrollBarThickness = 6,
+    ScrollBarThickness = 4,
     BorderSizePixel = 0,
     CanvasSize = UDim2.new(2, 0, 2, 0), 
     Parent = main
 })
 
 local detailText = create("TextBox", {
-    Size = UDim2.new(1, -10, 1, 0), 
+    Size = UDim2.new(1, -5, 1, 0), 
     Position = UDim2.new(0, 5, 0, 0),
     BackgroundTransparency = 1, 
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Code, 
-    TextSize = 12,
+    TextSize = 10,
     MultiLine = true, 
     TextXAlignment = Enum.TextXAlignment.Left, 
     TextYAlignment = Enum.TextYAlignment.Top,
-    Text = "Select a request to view details", 
+    Text = "Select a request", 
     ClearTextOnFocus = false, 
     TextWrapped = false, 
     ClipsDescendants = false, 
     Parent = detailScroll
 })
 
+-- JADI INI:
 local actionBar = create("Frame", {
-    Size = UDim2.new(1, -265, 0, 35), 
-    Position = UDim2.new(0, 260, 1, -40),
+    Size = UDim2.new(1, -195, 0, 25), 
+    Position = UDim2.new(0, 190, 1, -30),
     BackgroundColor3 = Color3.fromRGB(30, 30, 30), 
     BorderSizePixel = 0, 
     Visible = false, 
@@ -259,24 +259,24 @@ local actionBar = create("Frame", {
 })
 
 local dropBtn = create("TextButton", {
-    Size = UDim2.new(0, 100, 0, 26), 
-    Position = UDim2.new(0.5, -105, 0.5, -13),
+    Size = UDim2.new(0.5, -5, 0, 22), 
+    Position = UDim2.new(0, 5, 0.5, -11),
     BackgroundColor3 = Color3.fromRGB(150, 80, 80), 
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Gotham,
-    TextSize = 11, 
-    Text = "Drop Request", 
+    TextSize = 10, 
+    Text = "Drop", 
     BorderSizePixel = 0, 
     Parent = actionBar
 })
 
 local forwardBtn = create("TextButton", {
-    Size = UDim2.new(0, 100, 0, 26), 
-    Position = UDim2.new(0.5, 5, 0.5, -13),
+    Size = UDim2.new(0.5, -5, 0, 22), 
+    Position = UDim2.new(0.5, 5, 0.5, -11),
     BackgroundColor3 = Color3.fromRGB(80, 150, 80), 
     TextColor3 = Color3.new(1, 1, 1), 
     Font = Enum.Font.Gotham,
-    TextSize = 11, 
+    TextSize = 10, 
     Text = "Forward", 
     BorderSizePixel = 0, 
     Parent = actionBar
@@ -298,22 +298,23 @@ local function updateDetailScroll()
     for _, line in ipairs(lines) do 
         maxWidth = math.max(maxWidth, #line) 
     end
-    detailScroll.CanvasSize = UDim2.new(0, math.max(maxWidth * 7, detailScroll.AbsoluteSize.X), 0, #lines * 16)
+    detailScroll.CanvasSize = UDim2.new(0, math.max(maxWidth * 6, detailScroll.AbsoluteSize.X), 0, #lines * 14)
 end
 
+-- JADI INI:
 local function updateListScroll()
-    listScroll.CanvasSize = UDim2.new(0, 0, 0, #State.requests * 50)
+    listScroll.CanvasSize = UDim2.new(0, 0, 0, #State.requests * 35)
     requestCountLabel.Text = "Requests: " .. #State.requests
 end
 
 local function updateDetailView()
     local source = State.selectedRequest and State.requests[State.selectedRequest:GetAttribute("Index")] or State.currentIntercept
     if source then
-        detailText.Text = State.currentTab == "request" and source.requestRaw or (source.responseRaw or "No response data")
+        detailText.Text = State.currentTab == "request" and source.requestRaw or (source.responseRaw or "No response")
         detailText.TextEditable = State.currentIntercept and State.currentTab == "response" and not State.currentIntercept.isTooLong
         updateDetailScroll()
     else
-        detailText.Text = "Select a request to view details"
+        detailText.Text = "Select a request"
         detailText.TextEditable = false
         updateDetailScroll()
     end
@@ -328,9 +329,10 @@ end
 
 local function createRequestButton(idx, req)
     local bgColor = req.status == "PENDING" and Color3.fromRGB(60, 60, 40) or Color3.fromRGB(40, 40, 40)
-    local btn = create("TextButton", {
-        Size = UDim2.new(1, -5, 0, 46), 
-        Position = UDim2.new(0, 3, 0, (idx - 1) * 50),
+-- GANTI INI:
+local btn = create("TextButton", {
+    Size = UDim2.new(1, -5, 0, 36), -- TINGGI BUTTON
+    Position = UDim2.new(0, 3, 0, (idx - 1) * 40), -- SPACING
         BackgroundColor3 = bgColor, 
         BorderSizePixel = 0, 
         Text = "", 
@@ -339,39 +341,39 @@ local function createRequestButton(idx, req)
     btn:SetAttribute("Index", idx)
     
     local statusText = req.status and req.status ~= "PENDING" and " [" .. req.status .. "]" or ""
-    local displayUrl = #req.url > 40 and req.url:sub(1, 37) .. "..." or req.url
+    local displayUrl = #req.url > 30 and req.url:sub(1, 27) .. "..." or req.url
     
     create("TextLabel", {
-        Size = UDim2.new(0, 50, 0, 18), 
-        Position = UDim2.new(0, 5, 0, 5),
+        Size = UDim2.new(0, 40, 0, 16), 
+        Position = UDim2.new(0, 2, 0, 2),
         BackgroundTransparency = 1, 
         TextColor3 = req.method == "GET" and Color3.fromRGB(100, 200, 255) or Color3.fromRGB(255, 200, 100),
         Font = Enum.Font.Gotham, 
-        TextSize = 11, 
+        TextSize = 9, 
         Text = req.method, 
         TextXAlignment = Enum.TextXAlignment.Left, 
         Parent = btn
     })
     
     create("TextLabel", {
-        Size = UDim2.new(1, -55, 0, 18), 
-        Position = UDim2.new(0, 55, 0, 5),
+        Size = UDim2.new(1, -45, 0, 16), 
+        Position = UDim2.new(0, 42, 0, 2),
         BackgroundTransparency = 1, 
         TextColor3 = Color3.fromRGB(200, 200, 200), 
         Font = Enum.Font.Gotham,
-        TextSize = 9, 
+        TextSize = 8, 
         Text = req.status or "OK", 
         TextXAlignment = Enum.TextXAlignment.Right, 
         Parent = btn
     })
     
     create("TextLabel", {
-        Size = UDim2.new(1, -10, 0, 18), 
-        Position = UDim2.new(0, 5, 0, 25),
+        Size = UDim2.new(1, -5, 0, 14), 
+        Position = UDim2.new(0, 2, 0, 20),
         BackgroundTransparency = 1, 
         TextColor3 = Color3.fromRGB(200, 200, 200), 
         Font = Enum.Font.Code, 
-        TextSize = 10,
+        TextSize = 9,
         Text = displayUrl .. statusText, 
         TextXAlignment = Enum.TextXAlignment.Left, 
         TextYAlignment = Enum.TextYAlignment.Top,
@@ -504,11 +506,11 @@ local function saveRequestToFile(index)
     local safeUrl = req.url:gsub("https?://", ""):gsub("[^%w%.%-]", "_")
     
     -- Memotong URL jika terlalu panjang
-    if #safeUrl > 40 then
-        safeUrl = safeUrl:sub(1, 40)
+    if #safeUrl > 30 then
+        safeUrl = safeUrl:sub(1, 30)
     end
     
-    local filename = string.format("http_request_%s_%s_%s.txt", timestamp, safeMethod, safeUrl)
+    local filename = string.format("http_%s_%s_%s.txt", timestamp, safeMethod, safeUrl)
     
     -- Membuat konten untuk disimpan
     local content = string.format(
@@ -600,7 +602,7 @@ clearBtn.MouseButton1Click:Connect(function()
         end
     end
     
-    detailText.Text = "Select a request to view details"
+    detailText.Text = "Select a request"
     updateListScroll()
     updateDetailScroll()
 end)
@@ -613,13 +615,13 @@ saveBtn.MouseButton1Click:Connect(function()
         if success then
             -- Tampilkan notifikasi
             local notification = create("TextLabel", {
-                Size = UDim2.new(0, 180, 0, 35),
-                Position = UDim2.new(0.5, -90, 0.5, -18),
+                Size = UDim2.new(0, 150, 0, 30),
+                Position = UDim2.new(0.5, -75, 0.5, -15),
                 BackgroundColor3 = Color3.fromRGB(50, 150, 50),
                 TextColor3 = Color3.new(1, 1, 1),
                 Font = Enum.Font.Gotham,
-                TextSize = 12,
-                Text = "Request saved successfully!",
+                TextSize = 10,
+                Text = "Request saved!",
                 TextXAlignment = Enum.TextXAlignment.Center,
                 Parent = main
             })
@@ -636,13 +638,13 @@ saveBtn.MouseButton1Click:Connect(function()
         
         if success then
             local notification = create("TextLabel", {
-                Size = UDim2.new(0, 220, 0, 35),
-                Position = UDim2.new(0.5, -110, 0.5, -18),
+                Size = UDim2.new(0, 180, 0, 30),
+                Position = UDim2.new(0.5, -90, 0.5, -15),
                 BackgroundColor3 = Color3.fromRGB(50, 150, 50),
                 TextColor3 = Color3.new(1, 1, 1),
                 Font = Enum.Font.Gotham,
-                TextSize = 12,
-                Text = "All requests saved successfully!",
+                TextSize = 10,
+                Text = "All requests saved!",
                 TextXAlignment = Enum.TextXAlignment.Center,
                 Parent = main
             })
@@ -663,7 +665,7 @@ end)
 
 interceptBtn.MouseButton1Click:Connect(function()
     State.interceptEnabled = not State.interceptEnabled
-    interceptBtn.Text = State.interceptEnabled and "Intercept: ON" or "Intercept: OFF"
+    interceptBtn.Text = State.interceptEnabled and "INT: ON" or "INT: OFF"
     interceptBtn.BackgroundColor3 = State.interceptEnabled and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 60)
     
     if State.interceptEnabled then
