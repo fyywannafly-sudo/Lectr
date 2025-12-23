@@ -22,8 +22,8 @@ local function formatRawHttp(method, url, headers, body)
     
     if body then
         local bodyStr = tostring(body)
-        if #bodyStr > 500000 then
-            bodyStr = bodyStr:sub(1, 500000) .. "\n\n... [TRUNCATED]"
+        if #bodyStr > 10000000 then
+            bodyStr = bodyStr:sub(1, 10000000) .. "\n\n... [TRUNCATED]"
         end
         raw = raw .. "Content-Length: " .. #body .. "\n\n" .. bodyStr
     end
@@ -48,8 +48,8 @@ local function formatResponse(response, responseHeaders, isTooLong)
         end
     end
     
-    if #responseStr > 500000 then
-        responseStr = responseStr:sub(1, 500000) .. "\n\n... [TRUNCATED]"
+    if #responseStr > 10000000 then
+        responseStr = responseStr:sub(1, 10000000) .. "\n\n... [TRUNCATED]"
     end
     
     return raw .. "\n" .. responseStr
@@ -719,14 +719,14 @@ end)
 local function interceptResponse(method, url, requestRaw, response, responseHeaders, currentSessionId)
     if not State.interceptEnabled or currentSessionId ~= State.interceptId then
         local responseLength = #tostring(response)
-        local isTooLong = responseLength > 500000
+        local isTooLong = responseLength > 10000000
         local responseRaw = formatResponse(response, responseHeaders, isTooLong)
         addRequest(method, url, requestRaw, responseRaw, isTooLong, "CANCELLED")
         return nil
     end
     
     local responseLength = #tostring(response)
-    local isTooLong = responseLength > 500000
+    local isTooLong = responseLength > 10000000
     local responseRaw = formatResponse(response, responseHeaders, isTooLong)
     
     local interceptData = {
@@ -804,7 +804,7 @@ HttpGet = hookfunction(game.HttpGet, function(self, url, ...)
     
     local response = HttpGet(self, url, ...)
     local responseLength = #tostring(response)
-    local isTooLong = responseLength > 500000
+    local isTooLong = responseLength > 10000000
     
     if shouldIntercept then
         local interceptData = interceptResponse("GET", url, requestRaw, response, nil, currentSessionId)
@@ -836,7 +836,7 @@ HttpPost = hookfunction(game.HttpPost, function(self, url, data, ...)
     
     local response = HttpPost(self, url, data, ...)
     local responseLength = #tostring(response)
-    local isTooLong = responseLength > 500000
+    local isTooLong = responseLength > 10000000
     
     if shouldIntercept then
         local interceptData = interceptResponse("POST", url, requestRaw, response, nil, currentSessionId)
@@ -868,7 +868,7 @@ GetAsync = hookfunction(HttpService.GetAsync, function(self, url, ...)
     
     local response = GetAsync(self, url, ...)
     local responseLength = #tostring(response)
-    local isTooLong = responseLength > 500000
+    local isTooLong = responseLength > 10000000
     
     if shouldIntercept then
         local interceptData = interceptResponse("GET", url, requestRaw, response, nil, currentSessionId)
@@ -900,7 +900,7 @@ PostAsync = hookfunction(HttpService.PostAsync, function(self, url, data, conten
     
     local response = PostAsync(self, url, data, contentType, compress, headers, ...)
     local responseLength = #tostring(response)
-    local isTooLong = responseLength > 500000
+    local isTooLong = responseLength > 10000000
     
     if shouldIntercept then
         local interceptData = interceptResponse("POST", url, requestRaw, response, nil, currentSessionId)
@@ -935,7 +935,7 @@ RequestAsync = hookfunction(HttpService.RequestAsync, function(self, options, ..
     local responseBody = response and response.Body or nil
     local responseHeaders = response and response.Headers or nil
     local responseLength = responseBody and #tostring(responseBody) or 0
-    local isTooLong = responseLength > 500000
+    local isTooLong = responseLength > 10000000
     
     if shouldIntercept and response then
         local interceptData = interceptResponse(options.Method or "GET", options.Url, requestRaw, response.Body, response.Headers, currentSessionId)
@@ -970,7 +970,7 @@ local oldHttpCall; oldHttpCall = hookmetamethod(game, "__namecall", function(sel
         
         local response = oldHttpCall(self, ...)
         local responseLength = #tostring(response)
-        local isTooLong = responseLength > 500000
+        local isTooLong = responseLength > 10000000
         
         if shouldIntercept then
             local interceptData = interceptResponse("GET", url, requestRaw, response, nil, currentSessionId)
@@ -1002,7 +1002,7 @@ local oldHttpCall; oldHttpCall = hookmetamethod(game, "__namecall", function(sel
         
         local response = oldHttpCall(self, ...)
         local responseLength = #tostring(response)
-        local isTooLong = responseLength > 500000
+        local isTooLong = responseLength > 10000000
         
         if shouldIntercept then
             local interceptData = interceptResponse("POST", url, requestRaw, response, nil, currentSessionId)
@@ -1041,7 +1041,7 @@ if syn and syn.request then
         local responseBody = response and response.Body or nil
         local responseHeaders = response and response.Headers or nil
         local responseLength = responseBody and #tostring(responseBody) or 0
-        local isTooLong = responseLength > 500000
+        local isTooLong = responseLength > 10000000
         
         if shouldIntercept and response then
             local interceptData = interceptResponse(dat.Method or "GET", dat.Url, requestRaw, response.Body, response.Headers, currentSessionId)
@@ -1078,7 +1078,7 @@ if http and http.request then
         local responseBody = response and response.Body or nil
         local responseHeaders = response and response.Headers or nil
         local responseLength = responseBody and #tostring(responseBody) or 0
-        local isTooLong = responseLength > 500000
+        local isTooLong = responseLength > 10000000
         
         if shouldIntercept and response then
             local interceptData = interceptResponse(dat.Method or "GET", dat.Url, requestRaw, response.Body, response.Headers, currentSessionId)
@@ -1115,7 +1115,7 @@ if http_request then
         local responseBody = response and response.Body or nil
         local responseHeaders = response and response.Headers or nil
         local responseLength = responseBody and #tostring(responseBody) or 0
-        local isTooLong = responseLength > 500000
+        local isTooLong = responseLength > 10000000
         
         if shouldIntercept and response then
             local interceptData = interceptResponse(dat.Method or "GET", dat.Url, requestRaw, response.Body, response.Headers, currentSessionId)
@@ -1152,7 +1152,7 @@ if request then
         local responseBody = response and response.Body or nil
         local responseHeaders = response and response.Headers or nil
         local responseLength = responseBody and #tostring(responseBody) or 0
-        local isTooLong = responseLength > 500000
+        local isTooLong = responseLength > 10000000
         
         if shouldIntercept and response then
             local interceptData = interceptResponse(dat.Method or "GET", dat.Url, requestRaw, response.Body, response.Headers, currentSessionId)
