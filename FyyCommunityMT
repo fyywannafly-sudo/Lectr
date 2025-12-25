@@ -1,0 +1,3703 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/fyywannafly-sudo/FyyCommunity/refs/heads/main/lib_fyy"))()
+
+WindUI:AddTheme({
+    Name = "Fyy Community", 
+    Accent = WindUI:Gradient({                                                  
+        ["0"] = { Color = Color3.fromHex("#1f1f23"), Transparency = 0 },        
+        ["100"]   = { Color = Color3.fromHex("#18181b"), Transparency = 0 },    
+    }, {                                                                        
+        Rotation = 0,                                                           
+    }),                                                                         
+    Dialog = Color3.fromHex("#161616"),
+    Outline = Color3.fromHex("#FFFFFF"),
+    Text = Color3.fromHex("#FFFFFF"),
+    Placeholder = Color3.fromHex("#7a7a7a"),
+    Background = Color3.fromHex("#101010"),
+    Button = Color3.fromHex("#52525b"),
+    Icon = Color3.fromHex("#a1a1aa")
+})
+
+local Window = WindUI:CreateWindow({
+    Title = "FyyHUB",
+    Icon = "rbxassetid://106899268176689", 
+    Author = "Fyy X Mount",
+    Folder = "FyyConfig",
+    Size = UDim2.fromOffset(530, 300),
+    MinSize = Vector2.new(320, 300),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = false,
+    SideBarWidth = 150,
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = false,
+    ScrollBarEnabled = false,
+    Background = "rbxassetid://78893380921225", 
+})
+
+Window:SetToggleKey(Enum.KeyCode.G)
+
+WindUI:Notify({
+    Title = "FyyLoader",
+    Content = "Press G To Open/Close Menu!",
+    Duration = 4, 
+    Icon = "slack",
+})
+
+Window:EditOpenButton({
+    Title = "Fyy Community",
+    Icon = "rbxassetid://106899268176689",
+    CornerRadius = UDim.new(0,16),
+    StrokeThickness = 2,
+    Color = ColorSequence.new(
+        Color3.fromHex("FF0F7B"), 
+        Color3.fromHex("F89B29")
+    ),
+    OnlyMobile = false,
+    Enabled = true,
+    Draggable = true,
+})
+
+Window:SetIconSize(35) 
+Window:Tag({
+    Title = "1.0.9",
+    Color = Color3.fromHex("#30ff6a"),
+    Radius = 13, 
+})
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RobloxUsername = LocalPlayer.Name
+
+local AuthTab = Window:Tab({
+    Title = "Authentication",
+    Icon = "key",
+})
+
+Window:Divider()
+AuthTab:Select()
+
+local AccountTab = nil
+local AutowalkTab = nil
+local CopyavatarTab = nil
+local CustomanimationTab = nil
+local PlayerTab = nil
+local LogoutTab = nil
+
+local FILE_CONFIG = {
+    folder = "FyyAUTH",
+    subfolder = "auth",
+    filename = "token.dat"
+}
+
+local API_CONFIG = {
+    base_url = "http://151.240.0.25:3001",
+    validate_endpoint = "validate",
+    check_endpoint = "check-username"
+}
+
+local enteredKey = ""
+local menuCreated = false
+local isAuthenticating = false
+
+local AccountData = {
+    DisplayName = "",
+    Username = "",
+    Token = "",
+    Role = "",
+    ExpireDate = "",
+    ExpireDays = 0,
+    CreatedAt = "",
+    WhitelistStatus = "",
+    Usernames = {},           
+    UsernameCount = 0,        
+    UsernameResets = 0,       
+    LastUpdated = 0
+}
+
+local function getAuthFilePath()
+    return FILE_CONFIG.folder .. "/" .. FILE_CONFIG.subfolder .. "/" .. FILE_CONFIG.filename
+end
+
+local function saveToken(token)
+    local success, err = pcall(function()
+        if not isfolder(FILE_CONFIG.folder) then
+            makefolder(FILE_CONFIG.folder)
+        end
+        
+        local authFolder = FILE_CONFIG.folder .. "/" .. FILE_CONFIG.subfolder
+        if not isfolder(authFolder) then
+            makefolder(authFolder)
+        end
+        
+        local data = {
+            token = token,
+            username = RobloxUsername,
+            saved_at = os.time(),
+            version = "3.0"
+        }
+        
+        writefile(getAuthFilePath(), HttpService:JSONEncode(data))
+    end)
+    
+    if not success then
+        warn("[AUTH] Gagal menyimpan token: " .. tostring(err))
+    end
+    
+    return success
+end
+
+local function loadToken()
+    local success, result = pcall(function()
+        if not isfile(getAuthFilePath()) then
+            return nil
+        end
+        
+        local content = readfile(getAuthFilePath())
+        local data = HttpService:JSONDecode(content)
+        
+        if data.username == RobloxUsername then
+            return data.token
+        else
+            return nil
+        end
+    end)
+    
+    if success then
+        return result
+    else
+        warn("[AUTH] Failed to load token: " .. tostring(result))
+        return nil
+    end
+end
+
+local function deleteToken()
+    pcall(function()
+        if isfile(getAuthFilePath()) then
+            delfile(getAuthFilePath())
+        end
+    end)
+end
+
+local function safeHttpRequest(url, method, data, headers)
+    method = method or "GET"
+    
+    if not headers then
+        headers = {}
+    end
+    headers["ngrok-skip-browser-warning"] = "true"
+    
+    local requestData = {
+        Url = url,
+        Method = method,
+        Headers = headers
+    }
+    
+    if data and method == "POST" then
+        requestData.Body = data
+    end
+    
+    local ok, res = pcall(function()
+        return HttpService:RequestAsync(requestData)
+    end)
+    
+    if ok and res then
+        if res.Success and res.StatusCode == 200 then
+            return true, res.Body
+        elseif res.Success then
+            return false, "HTTP Error: " .. (res.StatusCode or "Unknown") .. " - " .. tostring(res.Body or "")
+        else
+            return false, "Request failed: " .. tostring(res.StatusMessage or "Unknown")
+        end
+    end
+
+    if method == "GET" then
+        local ok2, res2 = pcall(function()
+            return HttpService:GetAsync(url, true, headers)
+        end)
+        if ok2 and res2 then 
+            return true, res2 
+        end
+
+        local ok3, res3 = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if ok3 and res3 then 
+            return true, res3 
+        end
+        
+        return false, "All HTTP methods failed: " .. tostring(res)
+    end
+
+    return false, "HTTP request failed: " .. tostring(res)
+end
+
+local function updateAccountData(data)
+    if data and type(data) == "table" then
+        AccountData.DisplayName = LocalPlayer.DisplayName or LocalPlayer.Name
+        AccountData.Username = LocalPlayer.Name
+        AccountData.Token = getgenv().UserToken or AccountData.Token
+        AccountData.Role = data.Role or data.roleId or "Member"
+        AccountData.ExpireDate = data.ExpireDate or data.expiresAt or ""
+        AccountData.ExpireDays = data.ExpireDays or 0
+        AccountData.CreatedAt = data.CreatedAt or os.date("%Y-%m-%d %H:%M:%S")
+        AccountData.WhitelistStatus = data.WhitelistStatus or "Active"
+        AccountData.Usernames = data.usernames or data.Usernames or {}
+        AccountData.UsernameCount = data.UsernameCount or #AccountData.Usernames
+        AccountData.UsernameResets = data.UsernameResets or 0
+        AccountData.LastUpdated = os.time()
+    end
+end
+
+local function ValidateKey(key)
+    if not key or key == "" then
+        return false, "Key tidak boleh kosong!"
+    end
+
+    local username = LocalPlayer.Name
+    
+    local params = {
+        key = key,
+        username = username,
+        robloxId = tostring(LocalPlayer.UserId),
+        placeId = tostring(game.PlaceId)
+    }
+    
+    local queryString = ""
+    for k, v in pairs(params) do
+        if queryString ~= "" then queryString = queryString .. "&" end
+        queryString = queryString .. k .. "=" .. HttpService:UrlEncode(tostring(v))
+    end
+    
+    local url = API_CONFIG.base_url .. "/" .. API_CONFIG.validate_endpoint .. "?" .. queryString
+    
+    local headers = {
+        ["Content-Type"] = "application/json",
+        ["User-Agent"] = "Roblox/WinInet",
+        ["Accept"] = "application/json"
+    }
+
+    local ok, responseBody = safeHttpRequest(url, "GET", nil, headers)
+    if not ok then
+        return false, "Connection error: " .. tostring(responseBody)
+    end
+
+    local okDecode, data = pcall(function()
+        return HttpService:JSONDecode(responseBody)
+    end)
+    
+    if not okDecode then
+        return false, "Invalid server response"
+    end
+    
+    if data.status == "ok" then
+        getgenv().UserToken = key
+        
+        if data.data then
+            updateAccountData({
+                roleId = data.data.roleId or "Premium",
+                expiresAt = data.data.expiresAt or "",
+                usernames = data.data.registeredUsernames or {},
+                usernameCount = data.data.totalUsernames or 0,
+                remainingSlots = data.data.remainingSlots or 0
+            })
+        end
+        
+        local successMessages = {
+            OK = "Validation successful!",
+            FIRST_USER_REGISTERED = "Username pertama berhasil didaftarkan!",
+            NEW_USER_ADDED = "Username baru berhasil ditambahkan!"
+        }
+        
+        return true, successMessages[data.code] or "Validation successful!"
+    else
+        local errorMessages = {
+            INVALID_KEY = "Invalid license key",
+            BLACKLISTED = "Key diblacklist",
+            EXPIRED = "License expired",
+            USER_LIMIT_REACHED = "Key sudah mencapai batas 3 username. Reset melalui panel!",
+            MISSING_PARAMS = "Missing parameters"
+        }
+        
+        local errorMsg = errorMessages[data.code] or (data.message or "Authentication failed")
+        
+        if data.code == "USER_LIMIT_REACHED" and data.data then
+            errorMsg = errorMsg .. "\n\nUsernames terdaftar:\n"
+            for i, uname in ipairs(data.data.registeredUsernames or {}) do
+                errorMsg = errorMsg .. "- " .. uname .. "\n"
+            end
+        end
+        
+        return false, errorMsg
+    end
+end
+
+local function GetUserInfo()
+    local currentToken = getgenv().UserToken or loadToken()
+    
+    if not currentToken or currentToken == "" then
+        return false, "No token found"
+    end
+
+    local params = {
+        key = currentToken
+    }
+    
+    local queryString = ""
+    for k, v in pairs(params) do
+        if queryString ~= "" then queryString = queryString .. "&" end
+        queryString = queryString .. k .. "=" .. HttpService:UrlEncode(tostring(v))
+    end
+    
+    local url = API_CONFIG.base_url .. "/" .. API_CONFIG.check_endpoint .. "?" .. queryString
+    
+    local headers = {
+        ["Content-Type"] = "application/json",
+        ["User-Agent"] = "Roblox/WinInet"
+    }
+
+    local ok, responseBody = safeHttpRequest(url, "GET", nil, headers)
+    if not ok then
+        return false, "Connection error"
+    end
+
+    local okDecode, data = pcall(function()
+        return HttpService:JSONDecode(responseBody)
+    end)
+    
+    if not okDecode or data.status ~= "ok" then
+        return false, "Failed to get user info"
+    end
+    
+    if data.data then
+        updateAccountData({
+            roleId = data.data.roleId or "Premium",
+            expiresAt = data.data.expiresAt or "",
+            usernames = data.data.registeredUsernames or {},
+            usernameCount = data.data.totalUsernames or 0,
+            usernameResets = data.data.usernameResets or 0,
+            daysLeft = data.data.daysLeft or 0,
+            blacklisted = data.data.blacklisted or false
+        })
+        
+        return true, AccountData
+    end
+    
+    return false, "No user data found"
+end
+
+local function maskName(name)
+    if not name or name == "" then
+        return "*****"
+    end
+
+    local len = #name
+    if len <= 5 then
+        return string.sub(name, 1, 1) .. string.rep("*", len - 1)
+    end
+
+    local first3 = string.sub(name, 1, 2)
+    local last2 = string.sub(name, len - 1, len)
+    local middle = string.rep("*", len - 5)
+
+    return first3 .. middle .. last2
+end
+
+local function maskToken(token)
+    if not token or token == "" then
+        return "********"
+    end
+
+    local len = #token
+    if len <= 8 then
+        return string.rep("*", len)
+    end
+
+    local first5 = string.sub(token, 1, 5)
+    local last3 = string.sub(token, len - 2, len)
+    local middle = string.rep("*", len - 8)
+
+    return first5 .. middle .. last3
+end
+
+local function createAndUnlockAllTabs()
+    if not AccountTab then
+        AccountTab = Window:Tab({
+            Title = "Account",
+            Icon = "user",
+        })
+    end
+
+    if not PlayerTab then
+        PlayerTab = Window:Tab({
+            Title = "Player Menu",
+            Icon = "user-cog",
+        })
+    end
+
+    if not AutowalkTab then
+        AutowalkTab = Window:Tab({
+            Title = "Auto Walk",
+            Icon = "bot",
+        })
+    end
+
+    if not CopyavatarTab then
+        CopyavatarTab = Window:Tab({
+            Title = "Copy Avatar",
+            Icon = "sparkles",
+        })
+    end
+
+    if not CustomanimationTab then
+        CustomanimationTab = Window:Tab({
+            Title = "Animation",
+            Icon = "person-standing",
+        })
+    end
+
+    if not LogoutTab then
+        LogoutTab = Window:Tab({
+            Title = "Logout",
+            Icon = "log-out",
+        })
+    end
+end
+
+AuthTab:Section({ 
+    Title = "Fyy Community | Authentication",
+})
+
+AuthTab:Divider()
+
+local InviteCode = "77nEeYeFRp"
+local DiscordAPI = "https://discord.com/api/v10/invites/" .. InviteCode .. "?with_counts=true&with_expiration=true"
+
+local Response
+local ErrorMessage = nil
+
+xpcall(function()
+    Response = game:GetService("HttpService"):JSONDecode(WindUI.Creator.Request({
+        Url = DiscordAPI,
+        Method = "GET",
+        Headers = {
+            ["Accept"] = "application/json"
+        }
+    }).Body)
+end, function(err)
+    warn("err fetching discord info: " .. tostring(err))
+    ErrorMessage = tostring(err)
+    Response = nil
+end)
+
+if Response and Response.guild then
+    local ParagraphConfig = {
+        Title = Response.guild.name,
+        Desc =
+            ' <font color="#52525b">•</font> Member Count: ' .. tostring(Response.approximate_member_count) ..
+            '\n <font color="#16a34a">•</font> Online Count: ' .. tostring(Response.approximate_presence_count),
+        Image = "https://cdn.discordapp.com/icons/" .. Response.guild.id .. "/" .. Response.guild.icon .. ".png?size=256",
+        ImageSize = 42,
+        Buttons = {
+            {
+                Icon = "link",
+                Title = "Copy Discord Invite",
+                Callback = function()
+                    pcall(function()
+                        setclipboard("https://discord.gg/" .. InviteCode)
+                    end)
+                end
+            }
+        }
+    }
+    
+    if Response.guild.banner then
+        ParagraphConfig.Thumbnail = "https://cdn.discordapp.com/banners/" .. Response.guild.id .. "/" .. Response.guild.banner .. ".png?size=256"
+        ParagraphConfig.ThumbnailSize = 80
+    end
+    
+    local DiscordInfo = AuthTab:Paragraph(ParagraphConfig)
+else
+    AuthTab:Paragraph({
+        Title = "Error when receiving information about the Discord server",
+        Desc = ErrorMessage or "Unknown error occurred",
+        Image = "triangle-alert",
+        ImageSize = 26,
+        Color = "Red",
+    })
+end
+
+AuthTab:Divider()
+
+AuthTab:Input({
+    Title = "Input License Key",
+    Type = "Input",
+    InputIcon = "key",
+    Placeholder = "FYY-000-000-000",
+    Callback = function(input) 
+        enteredKey = tostring(input or ""):gsub("%s+", ""):gsub("[\n\r\t]", "")
+    end
+})
+
+AuthTab:Divider()
+
+local function verifyAndLogin()
+    if isAuthenticating then
+        WindUI:Notify({
+            Title = "Tunggu!",
+            Content = "Masih dalam proses validasi...",
+            Duration = 2,
+            Icon = "loader",
+        })
+        return
+    end
+
+    if enteredKey == "" then
+        WindUI:Notify({
+            Title = "Error!",
+            Content = "Masukan key terlebih dahulu!",
+            Duration = 3,
+            Icon = "triangle-alert",
+        })
+        return
+    end
+    
+    isAuthenticating = true
+    
+    WindUI:Notify({
+        Title = "Validating...",
+        Content = "Pengecekan token dengan username: " .. RobloxUsername,
+        Duration = 2,
+        Icon = "shield-check",
+    })
+
+    local valid, result = ValidateKey(enteredKey)
+    
+    isAuthenticating = false
+    
+    if valid then
+        saveToken(enteredKey)
+        getgenv().AuthComplete = true
+        getgenv().AuthTimestamp = os.time()
+        
+        WindUI:Notify({
+            Title = "Key Valid!",
+            Content = "Authentication berhasil!",
+            Duration = 3,
+            Icon = "check-check",
+        })
+        
+        task.wait(0.5)
+        
+        local userSuccess, userData = GetUserInfo()
+        if userSuccess then
+            updateAccountData(userData)
+        end
+        
+        task.wait(0.5)
+        
+        createAndUnlockAllTabs()
+        
+        WindUI:Notify({
+            Title = "Welcome!",
+            Content = "Menu utama telah terbuka. Selamat menggunakan FyyHUB!",
+            Duration = 3,
+            Icon = "sparkles",
+        })
+        
+        AccountTab:Select()
+        menuCreated = true
+        
+    else
+        WindUI:Notify({
+            Title = "Key Salah!",
+            Content = tostring(result),
+            Duration = 5,
+            Icon = "ban",
+        })
+    end
+end
+
+AuthTab:Button({
+    Title = "[◉] Verify Key",
+    Icon = "shield-check",
+    Callback = verifyAndLogin
+})
+
+task.spawn(function()
+    task.wait(2)
+    
+    local savedToken = loadToken()
+    if savedToken and not menuCreated then
+        WindUI:Notify({
+            Title = "Auto Login",
+            Content = "Mencoba login dengan saved token...",
+            Duration = 2,
+            Icon = "key-round",
+        })
+        
+        local valid, result = ValidateKey(savedToken)
+        if valid then
+            getgenv().UserToken = savedToken
+            getgenv().AuthComplete = true
+            getgenv().AuthTimestamp = os.time()
+            
+            WindUI:Notify({
+                Title = "Auto Login Success!",
+                Content = "Welcome back!",
+                Duration = 3,
+                Icon = "check-check",
+            })
+            
+            task.wait(0.5)
+            
+            local userSuccess, userData = GetUserInfo()
+            if userSuccess then
+                updateAccountData(userData)
+            end
+            
+            task.wait(0.5)
+            
+            createAndUnlockAllTabs()
+            AccountTab:Select()
+            menuCreated = true
+
+        else
+            deleteToken()
+            WindUI:Notify({
+                Title = "Auto Login Failed",
+                Content = "Saved token expired atau invalid. Silakan login manual.",
+                Duration = 4,
+                Icon = "alert-triangle",
+            })
+        end
+    end
+end)
+
+local accountInfoParagraph = nil
+
+local function refreshAccountDisplay()
+    if not AccountTab then return "" end
+    
+    local displayName = maskName(AccountData.DisplayName ~= "" and AccountData.DisplayName or "Loading...")
+    local username = maskName(AccountData.Username ~= "" and AccountData.Username or RobloxUsername)
+    local token = maskToken(AccountData.Token)
+    local role = AccountData.Role ~= "" and AccountData.Role or "Member"
+    local expireDays = AccountData.ExpireDays or 0
+    local expireDaysFormatted = expireDays > 0 and tostring(expireDays) .. " Days" or "Lifetime"
+    local statusText = (expireDays > 0 or AccountData.ExpireDate == "") and "Active" or "Expired"
+    
+    local usernamesText = ""
+    if AccountData.Usernames and #AccountData.Usernames > 0 then
+        usernamesText = "\n🎮 Usernames (" .. AccountData.UsernameCount .. "/3):\n"
+        for i, uname in ipairs(AccountData.Usernames) do
+            if i <= 5 then
+                usernamesText = usernamesText .. "  • " .. uname .. "\n"
+            end
+        end
+        if #AccountData.Usernames > 5 then
+            usernamesText = usernamesText .. "  • ... and " .. (#AccountData.Usernames - 5) .. " more\n"
+        end
+    else
+        usernamesText = "\n🎮 Usernames: Not registered yet\n"
+    end
+    
+    local description = string.format(
+        "👤 Account Information:\n" ..
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" ..
+        "🔹 Display Name: %s\n" ..
+        "🔹 Username: %s\n" ..
+        "🔹 Role: %s\n" ..
+        "🔹 Token: %s\n" ..
+        "🔹 Expire: %s\n" ..
+        "🔹 Status: %s\n" ..
+        "♻ Resets: %d" ..
+        "%s" ..
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" ..
+        "📌 Note: Max 3 usernames per key",
+        displayName,
+        username,
+        role,
+        token,
+        expireDaysFormatted,
+        statusText,
+        AccountData.UsernameResets or 0,
+        usernamesText
+    )
+    
+    return description
+end
+
+local function setupAccountTab()
+    if not AccountTab then return end
+    
+    AccountTab:Section({ 
+        Title = "FyyHUB | Account",
+    })
+
+    AccountTab:Divider()
+
+    local success, data = GetUserInfo()
+    if success then
+        updateAccountData(data)
+    end
+
+    local initialDesc = refreshAccountDisplay()
+
+    accountInfoParagraph = AccountTab:Paragraph({
+        Title = "Account Information",
+        Desc = initialDesc,
+    })
+
+    AccountTab:Divider()
+
+    AccountTab:Button({
+        Title = "Refresh Account Info",
+        Icon = "refresh-ccw",
+        Callback = function()
+            WindUI:Notify({
+                Title = "Refreshing...",
+                Content = "Memperbarui data akun...",
+                Duration = 2,
+                Icon = "loader",
+            })
+            
+            local success, data = GetUserInfo()
+            
+            if success then
+                updateAccountData(data)
+                
+                local newDesc = refreshAccountDisplay()
+                if accountInfoParagraph and accountInfoParagraph.SetDesc then
+                    accountInfoParagraph:SetDesc(newDesc)
+                end
+                
+                WindUI:Notify({
+                    Title = "Success!",
+                    Content = "Data account berhasil diperbarui!",
+                    Duration = 4,
+                    Icon = "check-check",
+                })
+            else
+                WindUI:Notify({
+                    Title = "Error",
+                    Content = tostring(data),
+                    Duration = 4,
+                    Icon = "x-circle",
+                })
+            end
+        end
+    })
+
+    AccountTab:Divider()
+
+    AccountTab:Button({
+        Title = "Copy Token",
+        Icon = "copy",
+        Callback = function()
+            local token = getgenv().UserToken or AccountData.Token
+            if token and token ~= "" then
+                setclipboard(token)
+                WindUI:Notify({
+                    Title = "Copied!",
+                    Content = "Token telah disalin ke clipboard",
+                    Duration = 3,
+                    Icon = "copy-check",
+                })
+            else
+                WindUI:Notify({
+                    Title = "Error",
+                    Content = "Tidak ada token yang tersedia",
+                    Duration = 3,
+                    Icon = "x-circle",
+                })
+            end
+        end
+    })
+
+    AccountTab:Divider()
+
+    AccountTab:Button({
+        Title = "View All Usernames",
+        Icon = "users",
+        Callback = function()
+            if AccountData.Usernames and #AccountData.Usernames > 0 then
+                local usernamesList = "📋 **Registered Usernames (" .. #AccountData.Usernames .. "/3):**\n"
+                for i, uname in ipairs(AccountData.Usernames) do
+                    usernamesList = usernamesList .. i .. ". " .. uname .. "\n"
+                end
+                usernamesList = usernamesList .. "\n♻ **Total Resets:** " .. (AccountData.UsernameResets or 0)
+                
+                AccountTab:Paragraph({
+                    Title = "Usernames List",
+                    Desc = usernamesList,
+                })
+            else
+                WindUI:Notify({
+                    Title = "Info",
+                    Content = "Belum ada username yang terdaftar",
+                    Duration = 3,
+                    Icon = "info",
+                })
+            end
+        end
+    })
+end
+
+local function setupLogoutTab()
+    if not LogoutTab then return end
+    
+    LogoutTab:Section({
+        Title = "Logout",
+    })
+
+    LogoutTab:Divider()
+
+    LogoutTab:Paragraph({
+        Title = "Warning",
+        Desc = "Logout akan menghapus token dari perangkat ini. Anda perlu login kembali untuk menggunakan menu.",
+    })
+
+    LogoutTab:Divider()
+
+    LogoutTab:Button({
+        Title = "[◉] Logout Account",
+        Icon = "log-out",
+        Callback = function()
+            deleteToken()
+            getgenv().UserToken = nil
+            
+            for k, _ in pairs(AccountData) do
+                AccountData[k] = ""
+            end
+            AccountData.ExpireDays = 0
+            
+            AccountTab = nil
+            AutowalkTab = nil
+            CopyavatarTab = nil
+            CustomanimationTab = nil
+            PlayerTab = nil
+            LogoutTab = nil
+            
+            menuCreated = false
+            AuthTab:Select()
+            
+            WindUI:Notify({
+                Title = "Logged Out",
+                Content = "Berhasil logout! Silakan login kembali.",
+                Duration = 4,
+                Icon = "check-check",
+            })
+        end
+    })
+end
+
+task.spawn(function()
+    while true do
+        task.wait(300)
+        if menuCreated and AccountData.Token ~= "" then
+            local success, data = GetUserInfo()
+            if success then
+                updateAccountData(data)
+                if accountInfoParagraph and accountInfoParagraph.SetDesc then
+                    local newDesc = refreshAccountDisplay()
+                    accountInfoParagraph:SetDesc(newDesc)
+                end
+            end
+        end
+    end
+end)
+
+local function setupAutowalkTab()
+    if not AutowalkTab then return end
+    
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local Lighting = game:GetService("Lighting")
+    
+    local player = Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+    local showPath = false
+    local pathColor = Color3.fromRGB(255, 0, 0)
+    local pathFolder = nil
+    
+    local trackNames = {
+        "MT | Yume (Normal)",
+        "MT | Yume (Tali)",
+        "MT | Celestra",
+        "MT | Kota Bukan Gunung",
+        "MT | Luna",
+        "MT | Stella",
+        "MT | Malaikat",
+        "MT | Molti",
+        "MT | Sikrit",
+        "MT | Sakahayang V2",
+        "MT | Kita",
+        "MT | Runia V2",
+        "MT | Zodiak",
+        "MT | Amethyst",
+        "MT | Berak",
+        "MT | Forever",
+        "MT | Freestyle Kzl",
+        "MT | Freestyle Kzl Wasd",
+        "MT | Aetheria C2",
+        "MT | Aetheria C3",
+        "MT | Age",
+        "MT | Anjir",
+        "MT | Axis",
+        "MT | Ayriene",
+        "MT | Bagendah",
+        "MT | Bjirlah",
+        "MT | Freestyle",
+        "MT | Freestyle Wasd",
+        "MT | Funny",
+        "MT | Gemi",
+        "MT | Jagok",
+        "MT | Nagih",
+        "MT | Ragon",
+        "MT | Velora",
+        "MT | Wasabi",
+        "MT | Wayang",
+        "MT | Wayang Wasd",
+        "MT | Yagesya",
+        "MT | Yagesya Wasd",
+        "MT | Yahayuk",
+        "MT | Yahayuk Wasd",
+        "MT | Yahayuk Freestyle",
+        "MT | Yahayuk CVIP",
+        "MT | YNTKTS",
+        "MT | Rhizoma",
+        "Sadewa City",
+    }
+
+    local trackURLs = {
+        ["MT | Yume (Normal)"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yume_jalur_normal.json",
+        ["MT | Yume (Tali)"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yume_jalur_tali.json",
+        ["MT | Celestra"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_celestra.json",
+        ["MT | Kota Bukan Gunung"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/kota_bukan_gunung.json",
+        ["MT | Luna"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_luna.json",
+        ["MT | Stella"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_stella.json",
+        ["MT | Malaikat"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_malaikat.json",
+        ["MT | Molti"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_molti.json",
+        ["MT | Sikrit"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_sikrit.json",
+        ["MT | Sakahayang V2"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_sakahayang_v2.json",
+        ["MT | Kita"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_kita.json",
+        ["MT | Runia V2"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_runia_v2.json",
+        ["MT | Zodiak"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_zodiak.json",
+        ["MT | Amethyst"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_amethyst.json",
+        ["MT | Berak"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_berak.json",
+        ["MT | Forever"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_forever.json",
+        ["MT | Freestyle Kzl"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_freestyle_kzl.json",
+        ["MT | Freestyle Kzl Wasd"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_freestyle_kzl_wasd.json",
+        ["MT | Aetheria C2"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_aetheria_coil_2.json",
+        ["MT | Aetheria C3"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_aetheria_coil_3.json",
+        ["MT | Age"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_age.json",
+        ["MT | Anjir"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_anjir.json",
+        ["MT | Axis"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_axis.json",
+        ["MT | Ayriene"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_ayriene.json",
+        ["MT | Bagendah"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_bagendah.json",
+        ["MT | Bjirlah"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_bjirlah.json",
+        ["MT | Freestyle"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_freestyle.json",
+        ["MT | Freestyle Wasd"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_freestyle_wasd.json",
+        ["MT | Funny"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_funny.json",
+        ["MT | Gemi"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_gemi_wasd.json",
+        ["MT | Jagok"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_jagok.json",
+        ["MT | Nagih"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_nagih.json",
+        ["MT | Ragon"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_ragon.json",
+        ["MT | Velora"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_velora.json",
+        ["MT | Wasabi"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_wasabi.json",
+        ["MT | Wayang"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_wayang_normal.json",
+        ["MT | Wayang Wasd"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_wayang_wasd.json",
+        ["MT | Yagesya"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yagesya.json",
+        ["MT | Yagesya Wasd"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yagesya_wasd.json",
+        ["MT | Yahayuk"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yahayuk.json",
+        ["MT | Yahayuk Wasd"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yahayuk_wasd.json",
+        ["MT | Yahayuk Freestyle"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yahayuk_freestyle.json",
+        ["MT | Yahayuk CVIP"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yahayuk_coil_vip.json",
+        ["MT | YNTKTS"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_yntkts.json",
+        ["MT | Rhizoma"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/mount_rhizoma.json",
+        ["Sadewa City"] = "https://raw.githubusercontent.com/SyhrlmyZID/track/refs/heads/main/sadewa_city.json",
+    }
+
+    local trackLockStatus = {
+        ["MT | Yume (Normal)"] = false,
+        ["MT | Yume (Tali)"] = false,
+        ["MT | Celestra"] = false,
+        ["MT | Kota Bukan Gunung"] = false,
+        ["MT | Luna"] = false,
+        ["MT | Stella"] = false,
+        ["MT | Malaikat"] = false,
+        ["MT | Molti"] = false,
+        ["MT | Sikrit"] = false,
+        ["MT | Sakahayang V2"] = true,
+        ["MT | Kita"] = false,
+        ["MT | Runia V2"] = false,
+        ["MT | Amethyst"] = false,
+        ["MT | Berak"] = false,
+        ["MT | Forever"] = false,
+        ["MT | Freestyle Kzl"] = false,
+        ["MT | Freestyle Kzl Wasd"] = false,
+        ["MT | Aetheria C2"] = false,
+        ["MT | Aetheria C3"] = false,
+        ["MT | Age"] = false,
+        ["MT | Anjir"] = false,
+        ["MT | Axis"] = false,
+        ["MT | Ayriene"] = false,
+        ["MT | Bagendah"] = false,
+        ["MT | Bjirlah"] = false,
+        ["MT | Freestyle"] = false,
+        ["MT | Freestyle Wasd"] = false,
+        ["MT | Funny"] = false,
+        ["MT | Gemi"] = false,
+        ["MT | Jagok"] = false,
+        ["MT | Nagih"] = false,
+        ["MT | Ragon"] = true,
+        ["MT | Velora"] = false,
+        ["MT | Wasabi"] = false,
+        ["MT | Wayang"] = false,
+        ["MT | Wayang Wasd"] = false,
+        ["MT | Yagesya"] = false,
+        ["MT | Yagesya Wasd"] = false,
+        ["MT | Yahayuk"] = false,
+        ["MT | Yahayuk Wasd"] = false,
+        ["MT | Yahayuk Freestyle"] = false,
+        ["MT | Yahayuk CVIP"] = false,
+        ["MT | YNTKTS"] = false,
+        ["MT | Rhizoma"] = false,
+        ["Sadewa City"] = false,
+    }
+
+    local selectedJsonURL = nil
+    local cachedJsonData = nil
+    local autoWalkGUI = nil
+    local isWalking = false
+    local playbackConnection = nil
+    local playbackSpeed = 1.0
+    local heightOffset = 0
+    local isLoopEnabled = false
+    local isAutoRespawnEnabled = false
+    local lastPlaybackTime = 0
+    local accumulatedTime = 0
+    local isReversed = false
+    local isFlipped = false
+    local FLIP_SMOOTHNESS = 0.20
+    local currentFlipRotation = CFrame.new()
+    local PATH_THRESHOLD = 8
+    local ARRIVAL_THRESHOLD = 2
+    
+    local playStopKeybind = Enum.KeyCode.F
+    local flipRotateKeybind = Enum.KeyCode.R
+    local keybindConnection = nil
+    
+    local godModeEnabled = false
+    local isAutoWalkVisible = false
+
+    local function isTrackLocked(trackName)
+        return trackLockStatus[trackName] == true
+    end
+    
+    local function getAvailableTracks()
+        local availableTracks = {}
+        for _, trackName in ipairs(trackNames) do
+            local displayName = trackName
+            if isTrackLocked(trackName) then
+                displayName = trackName .. " 🔒"
+            end
+            table.insert(availableTracks, displayName)
+        end
+        return availableTracks
+    end
+    
+    local function cleanTrackName(displayName)
+        return displayName:gsub(" 🔒", "")
+    end
+    
+    local function tableToVec(t)
+        return Vector3.new(t.x, t.y, t.z)
+    end
+    
+    local function lerpVector(a, b, t)
+        return Vector3.new(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t, a.Z + (b.Z - a.Z) * t)
+    end
+    
+    local function lerpAngle(a, b, t)
+        local diff = (b - a)
+        while diff > math.pi do diff = diff - 2*math.pi end
+        while diff < -math.pi do diff = diff + 2*math.pi end
+        return a + diff * t
+    end
+    
+    local function loadJsonFromURL(url)
+        if not url or url == "" then
+            return nil, "URL kosong!"
+        end
+    
+        local success, result = pcall(function()
+            return game:HttpGet(url)
+        end)
+    
+        if not success then
+            return nil, "Gagal mengunduh JSON dari URL!"
+        end
+    
+        local ok, jsonData = pcall(function()
+            return HttpService:JSONDecode(result)
+        end)
+    
+        if not ok then
+            return nil, "Format JSON invalid!"
+        end
+    
+        return jsonData, nil
+    end
+
+    local function clearPath()
+        if pathFolder then
+            pathFolder:Destroy()
+            pathFolder = nil
+        end
+    end
+
+    local function drawPath(data)
+        clearPath()
+
+        if not data or #data < 2 then
+            return
+        end
+
+        pathFolder = Instance.new("Folder")
+        pathFolder.Name = "AutoWalk_Path"
+        pathFolder.Parent = workspace
+
+        local skipRate = 5
+        local optimizedData = {}
+        table.insert(optimizedData, data[1])
+
+        for i = skipRate, #data, skipRate do
+            table.insert(optimizedData, data[i])
+        end
+
+        if data[#data] ~= optimizedData[#optimizedData] then
+            table.insert(optimizedData, data[#data])
+        end
+
+        local attachments = {}
+
+        for i, frame in ipairs(optimizedData) do
+            local part = Instance.new("Part")
+            part.Anchored = true
+            part.CanCollide = false
+            part.Transparency = 1
+            part.Size = Vector3.new(0.1, 0.1, 0.1)
+            part.Position = tableToVec(frame.position)
+            part.CastShadow = false
+            part.Material = Enum.Material.SmoothPlastic
+            part.Parent = pathFolder
+
+            local att = Instance.new("Attachment")
+            att.Parent = part
+            table.insert(attachments, att)
+        end
+
+        for i = 1, #attachments - 1 do
+            local beam = Instance.new("Beam")
+            beam.Attachment0 = attachments[i]
+            beam.Attachment1 = attachments[i + 1]
+
+            beam.FaceCamera = true
+            beam.Width0 = 0.2
+            beam.Width1 = 0.2
+            beam.LightEmission = 0.8 
+            beam.LightInfluence = 0
+            beam.Transparency = NumberSequence.new(0.1)
+            beam.Color = ColorSequence.new(pathColor)
+            beam.Texture = ""
+            beam.Segments = 1
+
+            beam.Parent = attachments[i]
+        end
+    end
+
+    local function findSurroundingFrames(data, t)
+        if #data == 0 then
+            return nil, nil, 0
+        end
+    
+        if t <= data[1].time then
+            return 1, 1, 0
+        end
+    
+        if t >= data[#data].time then
+            return #data, #data, 0
+        end
+    
+        local left, right = 1, #data
+        while left < right - 1 do
+            local mid = math.floor((left + right) / 2)
+            if data[mid].time <= t then
+                left = mid
+            else
+                right = mid
+            end
+        end
+    
+        local i0, i1 = left, right
+        local span = data[i1].time - data[i0].time
+        local alpha = span > 0 and math.clamp((t - data[i0].time) / span, 0, 1) or 0
+        return i0, i1, alpha
+    end
+    
+    local function findNearestPointInPath(data, currentPos)
+        local nearestIndex = 1
+        local nearestDistance = math.huge
+        
+        for i, frame in ipairs(data) do
+            local framePos = tableToVec(frame.position)
+            local distance = (currentPos - framePos).Magnitude
+            
+            if distance < nearestDistance then
+                nearestDistance = distance
+                nearestIndex = i
+            end
+        end
+        
+        return nearestIndex, nearestDistance
+    end
+    
+    local function isPlayerOnPath(currentPos, data, threshold)
+        threshold = threshold or PATH_THRESHOLD
+        local _, nearestDistance = findNearestPointInPath(data, currentPos)
+        return nearestDistance <= threshold, nearestDistance
+    end
+    
+    local function stopPlayback()
+        isWalking = false
+        accumulatedTime = 0
+        lastPlaybackTime = 0
+        heightOffset = 0
+        isFlipped = false
+        currentFlipRotation = CFrame.new()
+    
+        if playbackConnection then
+            playbackConnection:Disconnect()
+            playbackConnection = nil
+        end
+    
+        if character and humanoid then
+            humanoid:Move(Vector3.new(0, 0, 0), false)
+            if humanoid:GetState() ~= Enum.HumanoidStateType.Running and
+                humanoid:GetState() ~= Enum.HumanoidStateType.RunningNoPhysics then
+                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+        end
+    end
+    
+    local function walkToPosition(targetPos, callback)
+        if not humanoid or not character then
+            if callback then callback(false) end
+            return
+        end
+        
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            if callback then callback(false) end
+            return
+        end
+        
+        local distance = (hrp.Position - targetPos).Magnitude
+        
+        if distance < ARRIVAL_THRESHOLD then
+            if callback then callback(true) end
+            return
+        end
+        
+        local moveConnection
+        local reached = false
+        local timeout = false
+        
+        moveConnection = humanoid.MoveToFinished:Connect(function(isReached)
+            reached = true
+            if moveConnection then
+                moveConnection:Disconnect()
+                moveConnection = nil
+            end
+        end)
+        
+        humanoid:MoveTo(targetPos)
+        
+        local startTime = tick()
+        local maxWaitTime = 20
+        
+        while not reached and not timeout do
+            task.wait(0.1)
+            if (tick() - startTime) >= maxWaitTime then
+                timeout = true
+            end
+        end
+        
+        if moveConnection then
+            moveConnection:Disconnect()
+        end
+        
+        if callback then
+            callback(reached and not timeout)
+        end
+    end
+    
+    local function killCharacter()
+        if character and character:FindFirstChild("Humanoid") then
+            character.Humanoid.Health = 0
+        end
+    end
+
+    clearPath()
+
+    local function startPlayback(data, startIndex, skipWalkTo)
+        if not data or #data == 0 then
+            WindUI:Notify({
+                Title = "Error",
+                Content = "Data JSON kosong atau tidak valid!",
+                Duration = 3,
+                Icon = "alert-triangle",
+            })
+            return
+        end
+    
+        if isWalking then
+            stopPlayback()
+        end
+    
+        startIndex = startIndex or 1
+        skipWalkTo = skipWalkTo or false
+    
+        if character and character:FindFirstChild("HumanoidRootPart") and data[startIndex] then
+            local startFrame = data[startIndex]
+            local startPos = tableToVec(startFrame.position)
+            local startYaw = startFrame.rotation or 0
+    
+            local hrp = character.HumanoidRootPart
+            local currentHipHeight = humanoid.HipHeight
+            local recordedHipHeight = data[startIndex].hipHeight or 2
+            heightOffset = currentHipHeight - recordedHipHeight
+    
+            if not skipWalkTo then
+                local correctedStartY = startPos.Y + heightOffset
+                local correctedStartPos = Vector3.new(startPos.X, correctedStartY, startPos.Z)
+                hrp.CFrame = CFrame.new(correctedStartPos) * CFrame.Angles(0, startYaw, 0)
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            end
+        end
+    
+        isWalking = true
+        local playbackStartTime = tick()
+        lastPlaybackTime = playbackStartTime
+        accumulatedTime = data[startIndex].time
+        local lastJumping = false
+    
+        if playbackConnection then
+            playbackConnection:Disconnect()
+            playbackConnection = nil
+        end
+    
+        playbackConnection = RunService.Heartbeat:Connect(function(deltaTime)
+            if not isWalking then return end
+            if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+            if not humanoid or humanoid.Parent ~= character then
+                humanoid = character:FindFirstChild("Humanoid")
+            end
+    
+            local currentTime = tick()
+            local actualDelta = math.min(currentTime - lastPlaybackTime, 0.1)
+            lastPlaybackTime = currentTime
+            local totalDuration = data[#data].time
+    
+            if isReversed then
+                accumulatedTime -= (actualDelta * playbackSpeed)
+                if accumulatedTime <= data[1].time then
+                    if isLoopEnabled then
+                        stopPlayback()
+                        task.wait(2)
+    
+                        local hrp = character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            local endFrame = data[#data]
+                            local endPos = tableToVec(endFrame.position)
+    
+                            walkToPosition(endPos, function(success)
+                                if success then
+                                    startPlayback(data, #data, true)
+                                end
+                            end)
+                        end
+                        return
+                    else
+                        stopPlayback()
+                        return
+                    end
+                end
+            else
+                accumulatedTime += (actualDelta * playbackSpeed)
+                if accumulatedTime >= totalDuration then
+                    stopPlayback()
+    
+                    if isLoopEnabled and isAutoRespawnEnabled then
+                        killCharacter()
+    
+                        if character and character:FindFirstChild("Humanoid") then
+                            character.Humanoid.Died:Wait()
+                        end
+    
+                        local newChar = player.CharacterAdded:Wait()
+                        character = newChar
+                        task.wait(1)
+    
+                        startPlayback(data, 1, false)
+                        return
+                    end
+    
+                    if isAutoRespawnEnabled and not isLoopEnabled then
+                        killCharacter()
+    
+                        if character and character:FindFirstChild("Humanoid") then
+                            character.Humanoid.Died:Wait()
+                        end
+    
+                        return
+                    end
+    
+                    if isLoopEnabled and not isAutoRespawnEnabled then
+                        task.wait(1)
+    
+                        local hrp = character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            local startFrame = data[1]
+                            local startPos = tableToVec(startFrame.position)
+    
+                            walkToPosition(startPos, function(success)
+                                if success then
+                                    startPlayback(data, 1, true)
+                                end
+                            end)
+                        end
+                        return
+                    end
+    
+                    return
+                end
+            end
+    
+            local i0, i1, alpha = findSurroundingFrames(data, accumulatedTime)
+            local f0, f1 = data[i0], data[i1]
+            if not f0 or not f1 then return end
+    
+            local pos0, pos1 = tableToVec(f0.position), tableToVec(f1.position)
+            local vel0, vel1 = tableToVec(f0.velocity or {x=0,y=0,z=0}), tableToVec(f1.velocity or {x=0,y=0,z=0})
+            local move0, move1 = tableToVec(f0.moveDirection or {x=0,y=0,z=0}), tableToVec(f1.moveDirection or {x=0,y=0,z=0})
+            local yaw0, yaw1 = f0.rotation or 0, f1.rotation or 0
+    
+            local interpPos = lerpVector(pos0, pos1, alpha)
+            local interpVel = lerpVector(vel0, vel1, alpha)
+            local interpMove = lerpVector(move0, move1, alpha)
+            local interpYaw = lerpAngle(yaw0, yaw1, alpha)
+            local hrp = character.HumanoidRootPart
+    
+            if isReversed then
+                interpVel = -interpVel
+                interpMove = -interpMove
+            end
+            
+            local correctedY = interpPos.Y + heightOffset
+            local targetCFrame = CFrame.new(interpPos.X, correctedY, interpPos.Z) * CFrame.Angles(0, interpYaw, 0)
+            local targetFlipRotation = isFlipped and CFrame.Angles(0, math.pi, 0) or CFrame.new()
+            currentFlipRotation = currentFlipRotation:Lerp(targetFlipRotation, FLIP_SMOOTHNESS)
+            local lerpFactor = math.clamp(1 - math.exp(-12 * actualDelta), 0, 1)
+            hrp.CFrame = hrp.CFrame:Lerp(targetCFrame * currentFlipRotation, lerpFactor)
+    
+            pcall(function()
+                hrp.AssemblyLinearVelocity = interpVel
+            end)
+    
+            if humanoid then
+                humanoid:Move(interpMove, false)
+            end
+    
+            local jumpingNow = f0.jumping or false
+            if f1.jumping then jumpingNow = true end
+            if jumpingNow and not lastJumping then
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+            lastJumping = jumpingNow
+        end)
+    end
+    
+    local isLoadingTrack = false
+    
+    local function loadTrackData()
+        if isLoadingTrack then return false end
+        
+        if not selectedJsonURL then
+            WindUI:Notify({
+                Title = "Auto Walk",
+                Content = "Silakan pilih track terlebih dahulu!",
+                Duration = 3,
+                Icon = "triangle-alert",
+            })
+            return false
+        end
+        
+        if not cachedJsonData then
+            isLoadingTrack = true
+            WindUI:Notify({
+                Title = "Loading",
+                Content = "Mendownload checkpoint...",
+                Duration = 1.5,
+                Icon = "download",
+            })
+            
+            local jsonData, errorMsg = loadJsonFromURL(selectedJsonURL)
+            
+            if not jsonData then
+                isLoadingTrack = false
+                WindUI:Notify({
+                    Title = "Error",
+                    Content = errorMsg or "Gagal memuat track!",
+                    Duration = 5,
+                    Icon = "alert-triangle",
+                })
+                return false
+            end
+            
+            cachedJsonData = jsonData
+            isLoadingTrack = false
+            WindUI:Notify({
+                Title = "Success",
+                Content = "Checkpoint siap!",
+                Duration = 1.5,
+                Icon = "check",
+            })
+        end
+        
+        return true
+    end
+    
+    local function toggleAutoWalk()
+        if not loadTrackData() then return end
+        
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            WindUI:Notify({
+                Title = "Error",
+                Content = "Character tidak ditemukan!",
+                Duration = 2,
+                Icon = "alert-triangle",
+            })
+            return
+        end
+
+        local currentPos = hrp.Position
+        local nearestIndex, nearestDistance = findNearestPointInPath(cachedJsonData, currentPos)
+        local MAX_PLAY_DISTANCE = 50
+        
+        if nearestDistance > MAX_PLAY_DISTANCE then
+            WindUI:Notify({
+                Title = "Auto Walk",
+                Content = string.format("Terlalu jauh dari jalur (%.1f studs)!", nearestDistance),
+                Duration = 3,
+                Icon = "bot",
+            })
+            return
+        end
+
+        if autoWalkGUI and autoWalkGUI.Enabled then
+            local playBtn = autoWalkGUI:FindFirstChild("MainFrame")
+            if playBtn then
+                playBtn = playBtn:FindFirstChild("container")
+                if playBtn then
+                    for _, child in ipairs(playBtn:GetChildren()) do
+                        if child:IsA("TextButton") and (child.Text == "PLAY" or child.Text == "STOP") then
+                            playBtn = child
+                            break
+                        end
+                    end
+                    if playBtn and playBtn:IsA("TextButton") then
+                        playBtn.Text = "STOP"
+                    end
+                end
+            end
+        end
+
+        local onPath = isPlayerOnPath(currentPos, cachedJsonData, PATH_THRESHOLD)
+        if onPath then
+            startPlayback(cachedJsonData, nearestIndex, true)
+        else
+            local targetFrame = cachedJsonData[nearestIndex]
+            local targetPos = tableToVec(targetFrame.position)
+            walkToPosition(targetPos, function(success)
+                if success then
+                    startPlayback(cachedJsonData, nearestIndex, false)
+                end
+            end)
+        end
+    end
+    
+    local function setupKeybinds()
+        if keybindConnection then
+            keybindConnection:Disconnect()
+            keybindConnection = nil
+        end
+        
+        keybindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            
+            if input.KeyCode == playStopKeybind then
+                if not isWalking then
+                    toggleAutoWalk()
+                else
+                    stopPlayback()
+                    if autoWalkGUI and autoWalkGUI.Enabled then
+                        local playBtn = autoWalkGUI:FindFirstChild("MainFrame")
+                        if playBtn then
+                            playBtn = playBtn:FindFirstChild("container")
+                            if playBtn then
+                                for _, child in ipairs(playBtn:GetChildren()) do
+                                    if child:IsA("TextButton") and (child.Text == "PLAY" or child.Text == "STOP") then
+                                        playBtn = child
+                                        break
+                                    end
+                                end
+                                if playBtn and playBtn:IsA("TextButton") then
+                                    playBtn.Text = "PLAY"
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            
+            if input.KeyCode == flipRotateKeybind then
+                isFlipped = not isFlipped
+                if autoWalkGUI and autoWalkGUI.Enabled then
+                    local container = autoWalkGUI:FindFirstChild("MainFrame")
+                    if container then
+                        container = container:FindFirstChild("container")
+                        if container then
+                            for _, child in pairs(container:GetChildren()) do
+                                if child:IsA("TextButton") and child.Text == "FLIP" then
+                                    if isFlipped then
+                                        child.BackgroundColor3 = Color3.fromRGB(30, 180, 80)
+                                    else
+                                        child.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+                                    end
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+    
+    local function createAutoWalkGUI()
+        if autoWalkGUI then
+            autoWalkGUI.Enabled = true
+            return
+        end
+    
+        local playerGui = player:WaitForChild("PlayerGui")
+    
+        autoWalkGUI = Instance.new("ScreenGui")
+        autoWalkGUI.Name = "AutoWalkControlGUI"
+        autoWalkGUI.ResetOnSpawn = false
+        autoWalkGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+        local success = pcall(function()
+            autoWalkGUI.Parent = game:GetService("CoreGui")
+        end)
+        if not success then
+            autoWalkGUI.Parent = playerGui
+        end
+    
+        local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+        
+        local mainFrame = Instance.new("Frame")
+        mainFrame.Name = "MainFrame"
+        if isMobile then
+            mainFrame.Size = UDim2.new(0, 220, 0, 60)
+            mainFrame.Position = UDim2.new(0.5, -110, 1, -120)
+        else
+            mainFrame.Size = UDim2.new(0, 280, 0, 70)
+            mainFrame.Position = UDim2.new(0.5, -140, 1, -140)
+        end
+        mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+        mainFrame.BorderSizePixel = 0
+        mainFrame.Active = true
+        mainFrame.Selectable = true
+        mainFrame.Parent = autoWalkGUI
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 10)
+        corner.Parent = mainFrame
+        
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(200, 30, 30)
+        stroke.Thickness = 2
+        stroke.Parent = mainFrame
+        
+        local container = Instance.new("Frame")
+        container.Name = "container"
+        container.Size = UDim2.new(1, -16, 1, -16)
+        container.Position = UDim2.new(0, 8, 0, 8)
+        container.BackgroundTransparency = 1
+        container.Parent = mainFrame
+    
+        local layout = Instance.new("UIListLayout")
+        layout.FillDirection = Enum.FillDirection.Horizontal
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        layout.VerticalAlignment = Enum.VerticalAlignment.Center
+        layout.Padding = UDim.new(0, isMobile and 6 or 10)
+        layout.Parent = container
+    
+        local function createButton(icon, callback)
+            local btn = Instance.new("TextButton")
+            if isMobile then
+                btn.Size = UDim2.new(0, 60, 0, 32)
+            else
+                btn.Size = UDim2.new(0, 80, 0, 40)
+            end
+            btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+            btn.BorderSizePixel = 0
+            btn.Text = icon
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.TextSize = isMobile and 10 or 12
+            btn.Font = Enum.Font.GothamBold
+            btn.AutoButtonColor = false
+            btn.Parent = container
+    
+            local c = Instance.new("UICorner")
+            c.CornerRadius = UDim.new(0, isMobile and 6 or 8)
+            c.Parent = btn
+    
+            local s = Instance.new("UIStroke")
+            s.Color = Color3.fromRGB(200, 30, 30)
+            s.Thickness = 1.5
+            s.Parent = btn
+    
+            btn.MouseEnter:Connect(function()
+                btn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+            end)
+            btn.MouseLeave:Connect(function()
+                local currentColor = btn.BackgroundColor3
+                if currentColor ~= Color3.fromRGB(200, 30, 30) and currentColor ~= Color3.fromRGB(30, 180, 80) then
+                    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+                end
+            end)
+    
+            btn.Activated:Connect(function()
+                if callback then 
+                    callback(btn)
+                end
+            end)
+            
+            return btn
+        end
+    
+        local playBtn = createButton("PLAY", function(btn)
+            if not isWalking then
+                if not cachedJsonData then
+                    WindUI:Notify({
+                        Title = "Loading",
+                        Content = "Tunggu sebentar sedang mendownload checkpoint...",
+                        Duration = 2,
+                        Icon = "download",
+                    })
+                    local jsonData, errorMsg = loadJsonFromURL(selectedJsonURL)
+                    if not jsonData then
+                        WindUI:Notify({
+                            Title = "Error",
+                            Content = errorMsg or "Gagal download checkpoint, periksa koneksi internet anda!",
+                            Duration = 5,
+                            Icon = "alert-triangle",
+                        })
+                        return
+                    end
+                    cachedJsonData = jsonData
+                    WindUI:Notify({
+                        Title = "Success",
+                        Content = "Berhasil mendownload checkpoint, memulai auto walk...",
+                        Duration = 2,
+                        Icon = "check",
+                    })
+                end
+
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                if not hrp then
+                    WindUI:Notify({
+                        Title = "Error",
+                        Content = "Character tidak ditemukan!",
+                        Duration = 2,
+                        Icon = "alert-triangle",
+                    })
+                    return
+                end
+
+                local currentPos = hrp.Position
+                local nearestIndex, nearestDistance = findNearestPointInPath(cachedJsonData, currentPos)
+                local MAX_PLAY_DISTANCE = 50
+                if nearestDistance > MAX_PLAY_DISTANCE then
+                    WindUI:Notify({
+                        Title = "Auto Walk",
+                        Content = string.format("Terlalu jauh dari jalur (%.1f studs)! Maksimum %d.", nearestDistance, MAX_PLAY_DISTANCE),
+                        Duration = 3,
+                        Icon = "bot",
+                    })
+                    return
+                end
+
+                btn.Text = "STOP"
+                local onPath = isPlayerOnPath(currentPos, cachedJsonData, PATH_THRESHOLD)
+                if onPath then
+                    startPlayback(cachedJsonData, nearestIndex, true)
+                else
+                    local targetFrame = cachedJsonData[nearestIndex]
+                    local targetPos = tableToVec(targetFrame.position)
+                    walkToPosition(targetPos, function(success)
+                        if success then
+                            startPlayback(cachedJsonData, nearestIndex, false)
+                        else
+                            btn.Text = "PLAY"
+                        end
+                    end)
+                end
+            else
+                stopPlayback()
+                btn.Text = "PLAY"
+            end
+        end)
+
+        local rollbackBtn = createButton("REV", function(btn)
+            isReversed = not isReversed
+            if isReversed then
+                btn.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+            else
+                btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+            end
+        end)
+
+        local rotateBtn = createButton("FLIP", function(btn)
+            isFlipped = not isFlipped
+            if isFlipped then
+                btn.BackgroundColor3 = Color3.fromRGB(30, 180, 80)
+            else
+                btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+            end
+        end)
+    end
+    
+    local function destroyAutoWalkGUI()
+        if autoWalkGUI then
+            autoWalkGUI:Destroy()
+            autoWalkGUI = nil
+        end
+        
+        if keybindConnection then
+            keybindConnection:Disconnect()
+            keybindConnection = nil
+        end
+    end
+
+    local function hideAutoWalkGUI()
+        if autoWalkGUI and autoWalkGUI.Parent then
+            autoWalkGUI.Enabled = false
+        end
+    end
+    
+    local function enableGodMode()
+        godModeEnabled = true
+        task.spawn(function()
+            while godModeEnabled do
+                local currentChar = player.Character or player.CharacterAdded:Wait()
+                local currentHumanoid = currentChar:FindFirstChildOfClass("Humanoid")
+
+                if currentHumanoid then
+                    currentHumanoid.Health = currentHumanoid.MaxHealth
+                    currentHumanoid.HealthChanged:Connect(function()
+                        if godModeEnabled and currentHumanoid.Health < currentHumanoid.MaxHealth then
+                            currentHumanoid.Health = currentHumanoid.MaxHealth
+                        end
+                    end)
+
+                    currentHumanoid.Died:Connect(function()
+                        if godModeEnabled then
+                            task.wait(0.1)
+                            player:LoadCharacter()
+                            task.wait(1)
+                            enableGodMode()
+                        end
+                    end)
+                    currentHumanoid.BreakJointsOnDeath = false
+                end
+
+                task.wait(0.2)
+            end
+        end)
+    end
+
+    local function disableGodMode()
+        godModeEnabled = false
+    end
+    
+    player.CharacterAdded:Connect(function(newChar)
+        character = newChar
+        humanoid = character:WaitForChild("Humanoid")
+        humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+        
+        if isWalking then
+            stopPlayback()
+        end
+    end)
+    
+    setupKeybinds()
+
+    AutowalkTab:Section({ 
+        Title = "Auto Walk | Keybind (PC)",
+        TextTransparency = 0.05,
+        TextXAlignment = "Left",
+        TextSize = 17,
+    })
+
+    AutowalkTab:Keybind({
+        Title = "[◉] Play/Stop Keybind",
+        Desc = "Keybind untuk Play/Stop auto walk (Default: F)",
+        Value = "F",
+        Callback = function(v)
+            playStopKeybind = Enum.KeyCode[v]
+        end
+    })
+
+    AutowalkTab:Keybind({
+        Title = "[◉] Flip/Rotate Keybind",
+        Desc = "Keybind untuk Flip/Rotate (Default: R)",
+        Value = "R",
+        Callback = function(v)
+            flipRotateKeybind = Enum.KeyCode[v]
+        end
+    })
+
+    AutowalkTab:Section({ 
+        Title = "Auto Walk | Setting",
+        TextTransparency = 0.05,
+        TextXAlignment = "Left",
+        TextSize = 17,
+    })
+
+    AutowalkTab:Toggle({
+        Title = "[◉] Enable Loop",
+        Desc = "Berfungsi menjalankan auto walk secara berulang ulang.",
+        Icon = "check",
+        Type = "Checkbox",
+        Value = false,
+        Callback = function(state)
+            isLoopEnabled = state
+        end
+    })
+
+    AutowalkTab:Toggle({
+        Title = "[◉] Auto Respawn",
+        Desc = "Respawn otomatis saat mencapai checkpoint terakhir.",
+        Icon = "check",
+        Type = "Checkbox",
+        Value = false,
+        Callback = function(state)
+            isAutoRespawnEnabled = state
+        end
+    })
+
+    AutowalkTab:Toggle({
+        Title = "[◉] Enable God Mode",
+        Desc = "Berfungsi agar karakter kita tidak bisa terkena damage / mati.",
+        Icon = "check",
+        Type = "Checkbox",
+        Value = false,
+        Callback = function(state)
+            if state then
+                enableGodMode()
+            else
+                disableGodMode()
+            end
+        end
+    })
+
+    AutowalkTab:Slider({
+        Title = "[◉] Speed Auto Walk",
+        Desc = "Berfungsi mengatur kecepatan auto walk.",
+        Step = 0.1,
+        Value = {
+            Min = 0.5,
+            Max = 1.1,
+            Default = 1.0,
+        },
+        Callback = function(value)
+            playbackSpeed = value
+        end
+    })
+
+    AutowalkTab:Divider()
+
+    AutowalkTab:Section({ 
+        Title = "Auto Walk | Menu",
+        TextTransparency = 0.05,
+        TextXAlignment = "Left",
+        TextSize = 17,
+    })
+
+    AutowalkTab:Dropdown({
+        Title = "[◉] SELECT TRACK",
+        Values = getAvailableTracks(),
+        Multi = false,
+        AllowNone = true,
+        SearchBarEnabled = true,
+        Callback = function(selectedName)
+            local cleanName = cleanTrackName(selectedName)
+
+            if isTrackLocked(cleanName) then
+                WindUI:Notify({
+                    Title = "Map Locked 🔒",
+                    Content = "Track masih terkunci!",
+                    Duration = 4,
+                    Icon = "lock",
+                })
+                selectedJsonURL = nil
+                cachedJsonData = nil
+                clearPath()
+                return
+            end
+
+            selectedJsonURL = trackURLs[cleanName]
+            cachedJsonData = nil
+
+            WindUI:Notify({
+                Title = "Track",
+                Content = "Track '" .. cleanName .. "' dipilih!",
+                Duration = 2,
+                Icon = "check",
+            })
+
+            if showPath then
+                local jsonData = loadJsonFromURL(selectedJsonURL)
+                cachedJsonData = jsonData
+                drawPath(jsonData)
+            end
+        end
+    })
+
+    AutowalkTab:Toggle({
+        Title = "[◉] Show/Hide Auto Walk",
+        Desc = "Menampilkan / menyembunyikan menu Auto Walk.",
+        Icon = "eye",
+        Value = false,
+        Callback = function(state)
+            isAutoWalkVisible = state
+            if state == true then
+                createAutoWalkGUI()
+            else
+                hideAutoWalkGUI()
+            end
+        end
+    })
+
+    AutowalkTab:Divider()
+
+    AutowalkTab:Section({ 
+        Title = "Auto Walk | Visual Path",
+        TextTransparency = 0.05,
+        TextXAlignment = "Left",
+        TextSize = 17,
+    })
+
+    AutowalkTab:Toggle({
+        Title = "[◉] Enable Visual Path",
+        Desc = "Berfungsi menampilkan jalur auto walk.",
+        Icon = "map",
+        Value = false,
+        Callback = function(state)
+            showPath = state
+
+            if not selectedJsonURL then
+                clearPath()
+                return
+            end
+
+            if state then
+                cachedJsonData = cachedJsonData or loadJsonFromURL(selectedJsonURL)
+                drawPath(cachedJsonData)
+            else
+                clearPath()
+            end
+        end
+    })
+
+    AutowalkTab:Colorpicker({
+        Title = "[◉] Visual Path Color",
+        Default = pathColor,
+        Callback = function(color)
+            pathColor = color
+
+            if pathFolder then
+                clearPath()
+                
+                if cachedJsonData then
+                    drawPath(cachedJsonData)
+                end
+            end
+        end
+    })
+end
+
+local function setupCopyavatarTab()
+    if not CopyavatarTab then return end
+
+    local PlayersService = game:GetService("Players")
+    local LocalPlayer = PlayersService.LocalPlayer
+
+    local function getHeadshotUrl(userId)
+        local ok, url = pcall(function()
+            return PlayersService:GetUserThumbnailAsync(
+                userId,
+                Enum.ThumbnailType.HeadShot,
+                Enum.ThumbnailSize.Size150x150
+            )
+        end)
+        if ok and url then
+            return url
+        else
+            return "https://www.roblox.com/headshot-thumbnail/image?userId=" ..
+                tostring(userId) .. "&width=150&height=150&format=png"
+        end
+    end
+
+    local function copyAvatarFromPlayer(targetPlr)
+        if not targetPlr or not targetPlr.UserId then
+            WindUI:Notify({ Title = "Error", Content = "Tidak ada player yang dipilih!", Duration = 3, Icon = "x" })
+            return
+        end
+
+        local username = targetPlr.Name
+        local userId = targetPlr.UserId
+
+        if not LocalPlayer.Character then
+            WindUI:Notify({ Title = "Error", Content = "Karakter kamu belum dimuat.", Duration = 3, Icon = "x" })
+            return
+        end
+
+        task.spawn(function()
+            local okDesc, humanoidDesc = pcall(function()
+                return PlayersService:GetHumanoidDescriptionFromUserId(userId)
+            end)
+
+            if not okDesc or not humanoidDesc then
+                WindUI:Notify({ Title = "Error", Content = "Gagal mengambil avatar player.", Duration = 3, Icon = "x" })
+                return
+            end
+
+            local char = LocalPlayer.Character
+            if not char then return end
+
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if not humanoid then
+                WindUI:Notify({ Title = "Error", Content = "Humanoid tidak ditemukan.", Duration = 3, Icon = "x" })
+                return
+            end
+
+            for _, item in ipairs(char:GetChildren()) do
+                if item:IsA("Accessory") or item:IsA("Hat") or item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
+                    task.defer(item.Destroy, item)
+                end
+            end
+
+            task.wait(0.2)
+
+            local applied = false
+            local okApply = pcall(function()
+                if humanoid.ApplyDescriptionClientServer then
+                    humanoid:ApplyDescriptionClientServer(humanoidDesc)
+                else
+                    humanoid:ApplyDescription(humanoidDesc)
+                end
+            end)
+
+            if okApply then
+                applied = true
+            else
+                okApply = pcall(function()
+                    LocalPlayer:LoadCharacter()
+                    task.wait(1)
+                    local newHumanoid = LocalPlayer.Character:WaitForChild("Humanoid")
+                    newHumanoid:ApplyDescription(humanoidDesc)
+                end)
+                applied = okApply
+            end
+
+            if applied then
+                WindUI:Notify({
+                    Title = "Success",
+                    Content = "Avatar berhasil disalin dari " .. username .. "!",
+                    Duration = 3,
+                    Icon = "check"
+                })
+            else
+                WindUI:Notify({
+                    Title = "Error",
+                    Content = "Gagal menerapkan avatar (server membatasi perubahan avatar).",
+                    Duration = 3,
+                    Icon = "x"
+                })
+            end
+        end)
+    end
+
+    local function resetAvatarToOriginal()
+        task.spawn(function()
+            local okDesc, humanoidDesc = pcall(function()
+                return PlayersService:GetHumanoidDescriptionFromUserId(LocalPlayer.UserId)
+            end)
+
+            if not okDesc then
+                local ok = pcall(function()
+                    LocalPlayer:LoadCharacter()
+                end)
+
+                if ok then
+                    WindUI:Notify({ Title = "Reset", Content = "Avatar dikembalikan dengan respawn.", Duration = 3, Icon = "refresh-ccw" })
+                else
+                    WindUI:Notify({ Title = "Error", Content = "Gagal reset avatar!", Duration = 3, Icon = "x" })
+                end
+                return
+            end
+
+            local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if not humanoid then return end
+
+            for _, item in ipairs(char:GetChildren()) do
+                if item:IsA("Accessory") or item:IsA("Hat") or item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
+                    task.defer(item.Destroy, item)
+                end
+            end
+
+            task.wait(0.15)
+
+            local okApply = pcall(function()
+                if humanoid.ApplyDescriptionClientServer then
+                    humanoid:ApplyDescriptionClientServer(humanoidDesc)
+                else
+                    humanoid:ApplyDescription(humanoidDesc)
+                end
+            end)
+
+            if okApply then
+                WindUI:Notify({ Title = "Reset", Content = "Avatar original dipulihkan!", Duration = 3, Icon = "check" })
+            else
+                pcall(function() LocalPlayer:LoadCharacter() end)
+                WindUI:Notify({ Title = "Reset", Content = "Avatar dipulihkan melalui respawn.", Duration = 3, Icon = "refresh-ccw" })
+            end
+        end)
+    end
+
+    local playerInfoSection = CopyavatarTab:Section({
+        Title = "FyyHUB | Copy Avatar",
+        TextXAlignment = "Left",
+        TextSize = 17,
+        Opened = true,
+    })
+
+    local playerInfoContainer = playerInfoSection:Paragraph({
+        Title = "Tidak ada player yang dipilih",
+        Desc = "Informasi player akan muncul di sini",
+        Buttons = {}
+    })
+
+    local targetPlayer = nil
+
+    local function updateTargetInfo(plr)
+        if playerInfoContainer then
+            playerInfoContainer:Destroy()
+        end
+
+        if not plr then
+            playerInfoContainer = playerInfoSection:Paragraph({
+                Title = "No player selected",
+                Desc = "Pilih player dari dropdown",
+                Buttons = {
+                    {
+                        Icon = "rotate-ccw",
+                        Title = "Reset Avatar",
+                        Callback = function()
+                            resetAvatarToOriginal()
+                        end
+                    }
+                }
+            })
+            return
+        end
+
+        targetPlayer = plr
+        local username = plr.Name
+        local displayName = plr.DisplayName
+        local userId = plr.UserId
+        local headshotUrl = getHeadshotUrl(userId)
+
+        playerInfoContainer = playerInfoSection:Paragraph({
+            Title = "User: " .. username .. "\nNick: " .. displayName .. " \nID: " .. tostring(userId),
+            Desc = "Player targeted",
+            Image = headshotUrl,
+            ImageSize = 80,
+            Buttons = {
+                {
+                    Icon = "user",
+                    Title = "Copy Avatar",
+                    Callback = function()
+                        copyAvatarFromPlayer(plr)
+                    end
+                },
+                {
+                    Icon = "rotate-ccw",
+                    Title = "Reset Avatar",
+                    Callback = function()
+                        resetAvatarToOriginal()
+                    end
+                }
+            }
+        })
+    end
+
+    local function getListPlayer()
+        local names = {"None"}
+        for _, plr in ipairs(PlayersService:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                table.insert(names, plr.Name)
+            end
+        end
+        return names
+    end
+
+    CopyavatarTab:Divider()
+
+    local playerDropdown = CopyavatarTab:Dropdown({
+        Title = "[◉] SELECT PLAYER",
+        Values = getListPlayer(),
+        Value = "None",
+        SearchBarEnabled = true,
+        Callback = function(selectedName)
+            if selectedName == "None" then
+                updateTargetInfo(nil)
+            else
+                local plr = PlayersService:FindFirstChild(selectedName)
+                updateTargetInfo(plr)
+            end
+        end
+    })
+
+    CopyavatarTab:Button({
+        Title = "[◉] REFRESH PLAYER LIST",
+        Icon = "refresh-cw",
+        Callback = function()
+            playerDropdown:Refresh(getListPlayer())
+            WindUI:Notify({ Title = "Refreshed", Content = "Daftar player diperbarui!", Duration = 2, Icon = "check" })
+        end
+    })
+
+    CopyavatarTab:Divider()
+
+    PlayersService.PlayerAdded:Connect(function()
+        task.delay(2, function()
+            playerDropdown:Refresh(getListPlayer())
+        end)
+    end)
+
+    PlayersService.PlayerRemoving:Connect(function(plr)
+        task.delay(1, function()
+            playerDropdown:Refresh(getListPlayer())
+            if targetPlayer == plr then
+                updateTargetInfo(nil)
+                playerDropdown:Select("None")
+            end
+        end)
+    end)
+end
+
+local function setupCustomanimationTab()
+    if not CustomanimationTab then return end
+
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    local OriginalAnimations = {
+        Idle = {},
+        Walk = "",
+        Run = "",
+        Jump = "",
+    }
+
+    _G.LastSelectedAnim = {
+        Idle = "Original",
+        Walk = "Original",
+        Run = "Original",
+        Jump = "Original",
+    }
+
+    local CustomInputs = {
+        Idle = "",
+        Walk = "",
+        Run = "",
+        Jump = ""
+    }
+
+    local canAutoJump = false
+
+    local function ForceRefresh()
+        if not canAutoJump then return end
+        
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+
+    local function SaveOriginalAnimations()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local animate = char:WaitForChild("Animate")
+
+        if animate:FindFirstChild("idle") then
+            OriginalAnimations.Idle = {}
+            for _, a in ipairs(animate.idle:GetChildren()) do
+                if a:IsA("Animation") then
+                    table.insert(OriginalAnimations.Idle, a.AnimationId)
+                end
+            end
+        end
+
+        OriginalAnimations.Walk = animate.walk.WalkAnim.AnimationId
+        OriginalAnimations.Run = animate.run.RunAnim.AnimationId
+        OriginalAnimations.Jump = animate.jump.JumpAnim.AnimationId
+    end
+
+    SaveOriginalAnimations()
+    
+    task.delay(0.5, function()
+        canAutoJump = true
+    end)
+
+    local function ApplyOriginal(typeName)
+        local char = LocalPlayer.Character
+        if not char then return end
+        local animate = char:FindFirstChild("Animate")
+        if not animate then return end
+
+        if typeName == "Idle" then
+            local idle = animate:FindFirstChild("idle")
+            if idle then
+                for i, anim in ipairs(idle:GetChildren()) do
+                    if anim:IsA("Animation") and OriginalAnimations.Idle[i] then
+                        anim.AnimationId = OriginalAnimations.Idle[i]
+                    end
+                end
+            end
+        elseif typeName == "Walk" then
+            animate.walk.WalkAnim.AnimationId = OriginalAnimations.Walk
+        elseif typeName == "Run" then
+            animate.run.RunAnim.AnimationId = OriginalAnimations.Run
+        elseif typeName == "Jump" then
+            animate.jump.JumpAnim.AnimationId = OriginalAnimations.Jump
+        end
+
+        _G.LastSelectedAnim[typeName] = "Original"
+        ForceRefresh()
+    end
+
+    local function ApplyCustom(typeName, animData)
+        local char = LocalPlayer.Character
+        if not char then return end
+        local animate = char:FindFirstChild("Animate")
+        if not animate then return end
+
+        if typeName == "Idle" then
+            local idle = animate:FindFirstChild("idle")
+            if idle then
+                for i, anim in ipairs(idle:GetChildren()) do
+                    if anim:IsA("Animation") and animData[i] then
+                        anim.AnimationId = "rbxassetid://" .. animData[i]
+                    end
+                end
+            end
+        elseif typeName == "Walk" then
+            animate.walk.WalkAnim.AnimationId = "rbxassetid://" .. animData
+        elseif typeName == "Run" then
+            animate.run.RunAnim.AnimationId = "rbxassetid://" .. animData
+        elseif typeName == "Jump" then
+            animate.jump.JumpAnim.AnimationId = "rbxassetid://" .. animData
+        end
+
+        _G.LastSelectedAnim[typeName] = animData
+        ForceRefresh()
+    end
+
+    local function ParseAnimationId(input, isIdle)
+        if not input or input == "" then return nil end
+        
+        input = input:gsub("rbxassetid://", ""):gsub("%s+", "")
+        
+        if isIdle then
+            local ids = {}
+            for id in input:gmatch("([^,]+)") do
+                id = id:gsub("%s+", "")
+                if id:match("^%d+$") then
+                    table.insert(ids, id)
+                end
+            end
+            
+            if #ids == 1 then
+                return {ids[1], ids[1]}
+            elseif #ids >= 2 then
+                return {ids[1], ids[2]}
+            end
+            return nil
+        else
+            if input:match("^%d+$") then
+                return input
+            end
+        end
+        
+        return nil
+    end
+
+    LocalPlayer.CharacterAdded:Connect(function()
+        canAutoJump = false
+        
+        SaveOriginalAnimations()
+        
+        for typeName, lastValue in pairs(_G.LastSelectedAnim) do
+            if lastValue ~= "Original" then
+                task.spawn(function()
+                    task.wait(0.2)
+                    ApplyCustom(typeName, lastValue)
+                end)
+            end
+        end
+        
+        task.delay(0.5, function()
+            canAutoJump = true
+        end)
+    end)
+
+    local IdleAnimations = {
+        ["Original"] = "Original",
+        ["Adidas Community"] = { "122257458498464", "102357151005774" },
+        ["Vampire"] = { "1083445855", "1083450166"},
+        ["Wicked (Popular)"]  = { "118832222982049", "76049494037641"  },
+        ["NFL"] = { "92080889861410", "74451233229259"},
+        ["Astronaut"] = { "891621366", "891633237" },
+        ["Bubbly"] = { "910004836", "910009958" },
+        ["Cartoony"] = { "742637544", "742638445" },
+        ["Elder"] = { "845397899", "845400520" },
+        ["Knight"] = { "657595757", "657568135" },
+        ["Levitation"] = { "616006778", "616008087" },
+        ["Mage"] = { "707742142", "707855907" },
+        ["Ninja"] = { "656117400", "656118341" },
+        ["Pirate"] = { "750781874", "750782770" },
+        ["Robot"] = { "616088211", "616089559" },
+        ["Rthro"] = { "2510197257", "2510196951" },
+        ["Stylish"] = { "616136790", "616138447" },
+        ["Superhero"] = { "616111295", "616113536" },
+        ["Toy"] = { "782841498", "782845736" },
+        ["Werewolf"] = { "1083195517", "1083214717" },
+        ["Zombie"] = { "616158929", "616160636" },
+        ["Boxing Idle"] = { "80933111363555" },
+    }
+
+    local WalkAnimations = {
+        ["Original"] = "Original",
+        ["Adidas Community"] = "122150855457006",
+        ["Sports (Adidas)"] = "18537392113",
+        ["Wicked (Popular)"] = "92072849924640",
+        ["Astronaut"] = "891636393",
+        ["Bubbly"] = "910034870",
+        ["Cartoony"] = "742640026",
+        ["Elder"] = "845403856",
+        ["Knight"] = "657552124",
+        ["Levitation"] = "616013216",
+        ["Mage"] = "707897309",
+        ["Ninja"] = "656121766",
+        ["Pirate"] = "750785693",
+        ["Robot"] = "616095330",
+        ["Rthro"] = "2510202577",
+        ["Stylish"] = "616146177",
+        ["Superhero"] = "616122287",
+        ["Toy"] = "782843345",
+        ["Vampire"] = "1083473930",
+        ["Werewolf"] = "1083178339",
+        ["Zombie"] = "616168032",
+    }
+
+    local RunAnimations = {
+        ["Original"] = "Original",
+        ["Adidas Community"] = "82598234841035",
+        ["Sports (Adidas)"] = "18537384940",
+        ["Wicked (Popular)"] = "72301599441680",
+        ["Astronaut"] = "891636393",
+        ["Bubbly"] = "910025107",
+        ["Cartoony"] = "742638842",
+        ["Elder"] = "845386501",
+        ["Knight"] = "657564596",
+        ["Levitation"] = "616010382",
+        ["Mage"] = "707861613",
+        ["Ninja"] = "656118852",
+        ["Pirate"] = "750783738",
+        ["Robot"] = "616091570",
+        ["Rthro"] = "2510198475",
+        ["Stylish"] = "616140816",
+        ["Superhero"] = "616117076",
+        ["Toy"] = "782842708",
+        ["Vampire"] = "1083462077",
+        ["Werewolf"] = "1083216690",
+        ["Zombie"] = "616163682",
+        ["Animasi Viral"] = "138994056657038",
+    }
+
+    local JumpAnimations = {
+        ["Original"] = "Original",
+        ["Adidas Community"] = "75290611992385",
+        ["Sports (Adidas)"] = "18537380791",
+        ["Wicked (Popular)"] = "104325245285198",
+        ["Astronaut"] = "891627522",
+        ["Bubbly"] = "910016857",
+        ["Cartoony"] = "742637942",
+        ["Elder"] = "845398858",
+        ["Knight"] = "658409194",
+        ["Levitation"] = "616008936",
+        ["Mage"] = "707853694",
+        ["Ninja"] = "656117878",
+        ["Pirate"] = "750782230",
+        ["Robot"] = "616090535",
+        ["Rthro"] = "2510197830",
+        ["Stylish"] = "616139451",
+        ["Superhero"] = "616115533",
+        ["Toy"] = "782847020",
+        ["Vampire"] = "1083455352",
+        ["Werewolf"] = "1083218792",
+        ["Zombie"] = "616161997",
+        ["Jump Viral"] = "86368998086661",
+    }
+
+    local function MakeValuesList(animTable)
+        local list = {"Original"}
+        for name,_ in pairs(animTable) do
+            if name ~= "Original" then
+                table.insert(list, name)
+            end
+        end
+        table.sort(list)
+        return list
+    end
+
+    local function MakeDropdown(title, animTable, typeName)
+        CustomanimationTab:Dropdown({
+            Title = "[◉] " .. title,
+            Values = MakeValuesList(animTable),
+            Value = "Original",
+            SearchBarEnabled = true,
+            Callback = function(value)
+                if value == "Original" then
+                    ApplyOriginal(typeName)
+                else
+                    ApplyCustom(typeName, animTable[value])
+                end
+            end
+        })
+    end
+
+    CustomanimationTab:Section({ 
+        Title = "FyyHUB | Emot Menu",
+    })
+
+    CustomanimationTab:Divider()
+
+    CustomanimationTab:Paragraph({
+        Title = "Emot Menu",
+        Desc = "Pada emot menu ini fitur tambahan yang dimana kalian bisa menggunakan emot secara free, script emot ini dibuat oleh: Vexro Emots",
+    })
+
+    CustomanimationTab:Toggle({
+        Title = "[◉]  OPEN EMOT MENU",
+        Icon = "smile",
+        Type = "Checkbox",
+        Value = false,
+        Callback = function(state)
+            if state then
+                WindUI:Notify({
+                    Title = "Emot Menu",
+                    Content = "Tunggu sebentar...",
+                    Duration = 5,
+                    Icon = "smile",
+                })
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/zyrovell/Vexro-Emotes/main/vexroemotes.lua"))()
+            end
+        end
+    })
+
+    CustomanimationTab:Divider()
+
+    CustomanimationTab:Section({ Title = "FyyHUB | Animation" })
+
+    CustomanimationTab:Divider()
+
+    CustomanimationTab:Paragraph({
+        Title = "Animation Preset",
+        Desc = "Pada animation preset ini anda tidak perlu mencari id animation, tinggal anda sesuaikan saja.",
+    })
+
+    MakeDropdown("Idle Animation", IdleAnimations, "Idle")
+    MakeDropdown("Walk Animation", WalkAnimations, "Walk")
+    MakeDropdown("Run Animation", RunAnimations, "Run")
+    MakeDropdown("Jump Animation", JumpAnimations, "Jump")
+
+    CustomanimationTab:Divider()
+    CustomanimationTab:Section({ Title = "FyyHUB | Custom Animation" })
+
+    CustomanimationTab:Paragraph({
+        Title = "Custom Animation",
+        Desc = "Buat yang anda bingung nyari id animation nya, anda bisa salin link website di bawah ini dan paste di browser kalian.",
+    })
+    
+    CustomanimationTab:Button({
+        Title = "[◉] COPY LINK WEBSITE",
+        Icon = "clipboard",
+        Callback = function()
+            local link = "https://id.pinterest.com/ideas/roblox-animation-id-codes/927157409080/"
+            if setclipboard then
+                setclipboard(link)
+            elseif toclipboard then
+                toclipboard(link)
+            end
+            WindUI:Notify({
+                Title = "ID Animation",
+                Content = "Url id animation berhasil di salin!",
+                Duration = 3,
+                Icon = "clipboard",
+            })
+        end
+    })
+
+    CustomanimationTab:Divider()
+
+    CustomanimationTab:Input({
+        Title = "[◉] Idle Animation",
+        Type = "Input",
+        InputIcon = "person-standing",
+        Placeholder = "Masukan ID",
+        Callback = function(input) 
+            local ids = ParseAnimationId(input, true)
+            if ids then
+                CustomInputs.Idle = ids
+                WindUI:Notify({
+                    Title = "Idle",
+                    Content = "ID tersimpan!",
+                    Duration = 2,
+                    Icon = "check",
+                })
+            else
+                CustomInputs.Idle = ""
+            end
+        end
+    })
+
+    CustomanimationTab:Input({
+        Title = "[◉] Walk Animation",
+        Type = "Input",
+        InputIcon = "person-standing",
+        Placeholder = "Masukan ID",
+        Callback = function(input) 
+            local id = ParseAnimationId(input, false)
+            CustomInputs.Walk = id or ""
+        end
+    })
+
+    CustomanimationTab:Input({
+        Title = "[◉] Run Animation",
+        Type = "Input",
+        InputIcon = "person-standing",
+        Placeholder = "Masukan ID",
+        Callback = function(input) 
+            local id = ParseAnimationId(input, false)
+            CustomInputs.Run = id or ""
+        end
+    })
+
+    CustomanimationTab:Input({
+        Title = "[◉] Jump Animation",
+        Type = "Input",
+        InputIcon = "person-standing",
+        Placeholder = "Masukan ID",
+        Callback = function(input) 
+            local id = ParseAnimationId(input, false)
+            CustomInputs.Jump = id or ""
+        end
+    })
+
+    CustomanimationTab:Divider()
+
+    CustomanimationTab:Toggle({
+        Title = "[◉] APPLY ANIMATION",
+        Callback = function(state)
+            if state then
+                local applied = false
+                
+                if CustomInputs.Idle ~= "" then
+                    ApplyCustom("Idle", CustomInputs.Idle)
+                    applied = true
+                end
+                if CustomInputs.Walk ~= "" then
+                    ApplyCustom("Walk", CustomInputs.Walk)
+                    applied = true
+                end
+                if CustomInputs.Run ~= "" then
+                    ApplyCustom("Run", CustomInputs.Run)
+                    applied = true
+                end
+                if CustomInputs.Jump ~= "" then
+                    ApplyCustom("Jump", CustomInputs.Jump)
+                    applied = true
+                end
+                
+                WindUI:Notify({
+                    Title = "Animation",
+                    Content = applied and "Animation berhasil di ubah!" or "Tidak ada animation!",
+                    Duration = 3,
+                    Icon = applied and "person-standing" or "triangle-alert",
+                })
+            else
+                ApplyOriginal("Idle")
+                ApplyOriginal("Walk")
+                ApplyOriginal("Run")
+                ApplyOriginal("Jump")
+                
+                WindUI:Notify({
+                    Title = "Animation",
+                    Content = "Animation dikembalikan ke original!",
+                    Duration = 3,
+                    Icon = "person-standing",
+                })
+            end
+        end
+    })
+end
+
+local function setupPlayerTab()
+    if not PlayerTab then return end
+    
+    local WalkSpeedInput = { Value = 16 }
+
+    PlayerTab:Input({
+        Title = "Set WalkSpeed",
+        Placeholder = "Masukkan angka, contoh: 50",
+        Callback = function(value)
+            WalkSpeedInput.Value = tonumber(value) or 16
+        end
+    })
+
+    PlayerTab:Toggle({
+        Title = "WalkSpeed",
+        Type = "Toggle",
+        Default = false,
+        Callback = function(state)
+            local player = game.Players.LocalPlayer
+            local character = player.Character or player.CharacterAdded:Wait()
+            local humanoid = character:WaitForChild("Humanoid")
+
+            if state then
+                humanoid.WalkSpeed = WalkSpeedInput.Value or 16
+            else
+                humanoid.WalkSpeed = 16
+            end
+        end
+    })
+
+    PlayerTab:Space()
+    PlayerTab:Divider()
+
+    local InfiniteJumpConnection = nil
+
+    PlayerTab:Toggle({
+        Title = "Infinite Jump",
+        Type = "Toggle",
+        Default = false,
+        Callback = function(state)
+            local player = game.Players.LocalPlayer
+            
+            if state then
+                InfiniteJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+                    local character = player.Character
+                    if character and character:FindFirstChild("Humanoid") then
+                        character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    end
+                end)
+            else
+                if InfiniteJumpConnection then
+                    InfiniteJumpConnection:Disconnect()
+                    InfiniteJumpConnection = nil
+                end
+            end
+        end
+    })
+
+    local NoClipConnection = nil
+
+    PlayerTab:Toggle({
+        Title = "NoClip",
+        Type = "Toggle",
+        Default = false,
+        Callback = function(state)
+            local player = game.Players.LocalPlayer
+            
+            if state then
+                NoClipConnection = game:GetService("RunService").Stepped:Connect(function()
+                    local character = player.Character
+                    if character then
+                        for _, part in ipairs(character:GetChildren()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = false
+                            end
+                        end
+                    end
+                end)
+            else
+                if NoClipConnection then
+                    NoClipConnection:Disconnect()
+                    NoClipConnection = nil
+                end
+                
+                local character = player.Character
+                if character then
+                    for _, part in ipairs(character:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end
+    })
+
+    PlayerTab:Toggle({
+        Title = "No Fall Damage",
+        Type = "Toggle",
+        Default = false,
+        Callback = function(state)
+            local player = game.Players.LocalPlayer
+            local heartbeat = game:GetService("RunService").Heartbeat
+            local rstepped = game:GetService("RunService").RenderStepped
+            local zeroVec = Vector3.new(0,0,0)
+            local noFallConnection = nil
+            local enabled = state
+
+            local function enableNoFall(chr)
+                local root = chr:WaitForChild("HumanoidRootPart", 5)
+                if not root then return end
+
+                noFallConnection = heartbeat:Connect(function()
+                    if not root.Parent then
+                        if noFallConnection then
+                            noFallConnection:Disconnect()
+                            noFallConnection = nil
+                        end
+                        return
+                    end
+
+                    local oldvel = root.AssemblyLinearVelocity
+                    root.AssemblyLinearVelocity = zeroVec
+                    rstepped:Wait()
+                    root.AssemblyLinearVelocity = oldvel
+                end)
+            end
+
+            local function disableNoFall()
+                if noFallConnection then
+                    noFallConnection:Disconnect()
+                    noFallConnection = nil
+                end
+            end
+
+            if state then
+                if player.Character then
+                    enableNoFall(player.Character)
+                end
+                player.CharacterAdded:Connect(function(char)
+                    if enabled then
+                        enableNoFall(char)
+                    end
+                end)
+            else
+                disableNoFall()
+            end
+        end
+    })
+
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = Players.LocalPlayer
+
+    local CONFIG = {
+        textSize = 20,
+        textStrokeTransparency = 0.6,
+        yOffset = 2,
+    }
+
+    local currentName = "FyyOnTOP#1 👑"
+    local customGui
+    local conns = {}
+    local hiddenGuis = {}
+    local enabled = false
+
+    local function rainbowColor(t)
+        local r = math.sin(t*2) * 127 + 128
+        local g = math.sin(t*2 + 2) * 127 + 128
+        local b = math.sin(t*2 + 4) * 127 + 128
+        return Color3.fromRGB(r,g,b)
+    end
+
+    local function hideGuiIfTarget(gui)
+        if (gui:IsA("BillboardGui") or gui:IsA("SurfaceGui")) and gui.Name ~= "FyyOnTOP#1" then
+            if gui.Enabled ~= false then
+                hiddenGuis[gui] = true
+                gui.Enabled = false
+            end
+        end
+    end
+
+    local function restoreHiddenGuis()
+        for gui in pairs(hiddenGuis) do
+            if gui and gui.Parent then
+                pcall(function()
+                    gui.Enabled = true
+                end)
+            end
+        end
+        hiddenGuis = {}
+    end
+
+    local function createNameTag(character)
+        local head = character:FindFirstChild("Head") or character:FindFirstChild("UpperTorso")
+        if not head then return end
+
+        if customGui then
+            customGui:Destroy()
+            customGui = nil
+        end
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "FyyOnTOP#1"
+        billboard.Adornee = head
+        billboard.AlwaysOnTop = true
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, CONFIG.yOffset, 0)
+        billboard.Parent = head
+
+        local label = Instance.new("TextLabel")
+        label.BackgroundTransparency = 1
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.Text = currentName
+        label.Font = Enum.Font.SourceSansBold
+        label.TextSize = CONFIG.textSize
+        label.TextStrokeTransparency = CONFIG.textStrokeTransparency
+        label.TextColor3 = Color3.fromRGB(255,0,0)
+        label.TextScaled = false
+        label.Parent = billboard
+
+        local t = 0
+        local conn = RunService.RenderStepped:Connect(function(dt)
+            if not billboard.Parent then
+                pcall(function() conn:Disconnect() end)
+                return
+            end
+            t = t + dt
+            label.TextColor3 = rainbowColor(t)
+            label.Text = currentName
+        end)
+
+        table.insert(conns, conn)
+        customGui = billboard
+    end
+
+    local function hideDefaultNameTag(character)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            pcall(function()
+                humanoid.NameDisplayDistance = 0
+                humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+            end)
+        end
+
+        local head = character:FindFirstChild("Head")
+        if head then
+            for _, gui in ipairs(head:GetChildren()) do
+                hideGuiIfTarget(gui)
+            end
+            local conn = head.ChildAdded:Connect(function(child)
+                task.defer(function()
+                    hideGuiIfTarget(child)
+                end)
+            end)
+            table.insert(conns, conn)
+        end
+    end
+
+    local function disconnectAll()
+        for i = #conns, 1, -1 do
+            local c = conns[i]
+            pcall(function() 
+                if c and typeof(c) == "RBXScriptConnection" then
+                    c:Disconnect()
+                end
+            end)
+            conns[i] = nil
+        end
+    end
+
+    local function setEnabled(state)
+        enabled = state
+        if state then
+            if LocalPlayer.Character then
+                hideDefaultNameTag(LocalPlayer.Character)
+                createNameTag(LocalPlayer.Character)
+            end
+        else
+            disconnectAll()
+            if customGui then
+                customGui:Destroy()
+                customGui = nil
+            end
+            restoreHiddenGuis()
+        end
+    end
+
+    _G.SetMyVisualName = function(newName)
+        currentName = tostring(newName)
+        if enabled and LocalPlayer.Character then
+            createNameTag(LocalPlayer.Character)
+        end
+    end
+
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        if enabled then
+            task.delay(1, function()
+                if enabled and char:FindFirstChild("HumanoidRootPart") then
+                    hideDefaultNameTag(char)
+                    createNameTag(char)
+                end
+            end)
+        end
+    end)
+
+    setEnabled(false)
+
+    PlayerTab:Toggle({
+        Title = "Hide Name",
+        Type = "Toggle",
+        Default = false,
+        Callback = function(Value)
+            setEnabled(Value)
+        end
+    })
+
+    local espEnabled = false
+    local espConnections = {}
+
+    local function enableESPForPlayer(plr)
+        local char = plr.Character
+        if not char then return end
+        
+        if char:FindFirstChild("FyyESP") then
+            char.FyyESP:Destroy()
+        end
+        if char:FindFirstChild("Head") and char.Head:FindFirstChild("FyyNameBill") then
+            char.Head.FyyNameBill:Destroy()
+        end
+        
+        local hl = Instance.new("Highlight")
+        hl.Name = "FyyESP"
+        hl.FillColor = Color3.fromRGB(255, 0, 0)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.5
+        hl.OutlineTransparency = 0
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Parent = char
+        
+        if char:FindFirstChild("Head") then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "FyyNameBill"
+            billboard.Size = UDim2.new(0, 100, 0, 20)
+            billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+            billboard.AlwaysOnTop = true
+            billboard.MaxDistance = 500
+            
+            local tl = Instance.new("TextLabel")
+            tl.Size = UDim2.new(1, 0, 1, 0)
+            tl.BackgroundTransparency = 1
+            tl.Text = plr.Name
+            tl.TextColor3 = Color3.new(1, 1, 1)
+            tl.TextStrokeColor3 = Color3.new(0, 0, 0)
+            tl.TextStrokeTransparency = 0
+            tl.TextScaled = true
+            tl.Font = Enum.Font.GothamBold
+            tl.Parent = billboard
+            
+            billboard.Parent = char.Head
+        end
+    end
+
+    local function disableESPForPlayer(plr)
+        local char = plr.Character
+        if char then
+            if char:FindFirstChild("FyyESP") then
+                char.FyyESP:Destroy()
+            end
+            if char:FindFirstChild("Head") and char.Head:FindFirstChild("FyyNameBill") then
+                char.Head.FyyNameBill:Destroy()
+            end
+        end
+    end
+
+    local function setupESP()
+        for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+            if plr ~= game:GetService("Players").LocalPlayer then
+                if espEnabled then
+                    if plr.Character then
+                        enableESPForPlayer(plr)
+                    end
+                    
+                    espConnections[plr] = plr.CharacterAdded:Connect(function(char)
+                        task.wait(1)
+                        enableESPForPlayer(plr)
+                    end)
+                else
+                    disableESPForPlayer(plr)
+                    if espConnections[plr] then
+                        espConnections[plr]:Disconnect()
+                        espConnections[plr] = nil
+                    end
+                end
+            end
+        end
+        
+        espConnections.playerAdded = game:GetService("Players").PlayerAdded:Connect(function(plr)
+            if espEnabled then
+                espConnections[plr] = plr.CharacterAdded:Connect(function(char)
+                    task.wait(1)
+                    enableESPForPlayer(plr)
+                end)
+            end
+        end)
+    end
+
+    PlayerTab:Toggle({
+        Title = "Player ESP",
+        Type = "Toggle",
+        Default = false,
+        Callback = function(state)
+            espEnabled = state
+            
+            if espEnabled then
+                setupESP()
+                WindUI:Notify({
+                    Title = "Player ESP",
+                    Content = "ESP Enabled",
+                    Duration = 3
+                })
+            else
+                for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                    if plr ~= game:GetService("Players").LocalPlayer then
+                        disableESPForPlayer(plr)
+                    end
+                end
+                
+                for plr, connection in pairs(espConnections) do
+                    if connection then
+                        connection:Disconnect()
+                    end
+                end
+                espConnections = {}
+                
+                WindUI:Notify({
+                    Title = "Player ESP",
+                    Content = "ESP Disabled",
+                    Duration = 3
+                })
+            end
+        end
+    })
+
+    PlayerTab:Button({
+        Title = "Apply Anti Lag",
+        Desc = "Optimalkan game untuk mengurangi lag",
+        Callback = function()
+            WindUI:Notify({
+                Title = "Anti Lag",
+                Content = "Mengaplikasikan optimasi...",
+                Duration = 2,
+                Icon = "loader",
+            })
+            
+            local Lighting = game:GetService("Lighting")
+            local Workspace = game:GetService("Workspace")
+            local player = game.Players.LocalPlayer
+            
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
+                    obj.Material = Enum.Material.Plastic
+                end
+            end
+
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail") or obj:IsA("Sparkles") or obj:IsA("Smoke") or obj:IsA("Fire") then
+                    obj.Enabled = false
+                end
+            end
+
+            for _, obj in ipairs(Lighting:GetChildren()) do
+                if obj:IsA("BloomEffect") or obj:IsA("BlurEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("DepthOfFieldEffect") or obj:IsA("SunRaysEffect") then
+                    obj.Enabled = false
+                end
+            end
+
+            local camera = Workspace.CurrentCamera
+            for _, obj in ipairs(camera:GetChildren()) do
+                if obj:IsA("BlurEffect") then
+                    obj.Enabled = false
+                end
+            end
+
+            local sky = Lighting:FindFirstChildOfClass("Sky")
+            if sky then
+                sky.CelestialBodiesShown = false
+                sky.StarCount = 0
+            end
+
+            Lighting.GlobalShadows = false
+            Lighting.Technology = Enum.Technology.Compatibility
+            Lighting.FogEnd = 100000
+            Lighting.EnvironmentDiffuseScale = 0
+            Lighting.EnvironmentSpecularScale = 0
+            Lighting.Brightness = 1
+            Lighting.OutdoorAmbient = Color3.new(0.5, 0.5, 0.5)
+
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+                    obj.Enabled = false
+                end
+            end
+
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("Sound") then
+                    obj.Playing = false
+                end
+            end
+            
+            WindUI:Notify({
+                Title = "Anti Lag",
+                Content = "Optimasi berhasil diaplikasikan!",
+                Duration = 3,
+                Icon = "check",
+            })
+        end
+    })
+
+    local Section = PlayerTab:Section({
+        Title = "Time Menu",
+        TextTransparency = 0.05,
+        TextXAlignment = "Left",
+        TextSize = 17,
+    })
+
+    local currentTime = 12
+    local autoLockTime = false
+    local timeConnection = nil
+
+    PlayerTab:Toggle({
+        Title = "[◉] Lock Time",
+        Desc = "Kunci waktu agar server tidak bisa mengubahnya.",
+        Icon = "check",
+        Type = "Checkbox",
+        Value = false,
+        Callback = function(state)
+            autoLockTime = state
+
+            if state then
+                Lighting.TimeOfDay = string.format("%02d:00:00", math.floor(currentTime))
+
+                if not timeConnection then
+                    timeConnection = Lighting:GetPropertyChangedSignal("TimeOfDay"):Connect(function()
+                        if autoLockTime then
+                            Lighting.TimeOfDay = string.format("%02d:00:00", math.floor(currentTime))
+                        end
+                    end)
+                end
+            else
+                if timeConnection then
+                    timeConnection:Disconnect()
+                    timeConnection = nil
+                end
+            end
+        end
+    })
+
+    PlayerTab:Slider({
+        Title = "[◉] Set Time",
+        Desc = "Atur waktu siang, sore, malam.",
+        Step = 1,
+        Value = {
+            Min = 0,
+            Max = 24,
+            Default = 12,
+        },
+        Callback = function(value)
+            currentTime = value
+            Lighting.TimeOfDay = string.format("%02d:00:00", math.floor(currentTime))
+
+            if autoLockTime then
+                Lighting.TimeOfDay = string.format("%02d:00:00", math.floor(currentTime))
+            end
+        end
+    })
+
+    PlayerTab:Divider()
+
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+
+    PlayerTab:Section({
+        Title = "Invisible Player",
+        TextTransparency = 0.05,
+        TextXAlignment = "Left",
+        TextSize = 17,
+    })
+
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+
+    local InvisibleConnections = {}
+    local IsInvisibleActive = false
+    local originalTransparency = {}
+    local invisAnimationTrack = nil
+    local antiOverrideLoop = nil
+    local INVISIBLE_ANIMATION_ID = "100203839720961"
+
+    local INVISIBLE_BLACKLIST_PLACEIDS = {
+        [76964310785698] = true,
+    }
+
+    local currentPlaceId = game.PlaceId
+    local isInvisibleAllowed = not INVISIBLE_BLACKLIST_PLACEIDS[currentPlaceId]
+
+    local function makeTransparent()
+        if not character then return end
+        originalTransparency = {}
+
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                originalTransparency[part] = part.Transparency
+                part.Transparency = 0.4
+            end
+        end
+    end
+
+    local function makeVisible()
+        for part, transparency in pairs(originalTransparency) do
+            if part and part.Parent then
+                part.Transparency = transparency
+            end
+        end
+        originalTransparency = {}
+    end
+
+    local function loadInvisibleAnimation()
+        if not character or not humanoid then return false end
+
+        local animation = Instance.new("Animation")
+        animation.AnimationId = "rbxassetid://" .. INVISIBLE_ANIMATION_ID
+
+        invisAnimationTrack = humanoid:LoadAnimation(animation)
+        return invisAnimationTrack ~= nil
+    end
+
+    local function startAntiOverride()
+        if antiOverrideLoop then antiOverrideLoop:Disconnect() end
+
+        antiOverrideLoop = RunService.Heartbeat:Connect(function()
+            if IsInvisibleActive and invisAnimationTrack and humanoid then
+                if not invisAnimationTrack.IsPlaying then
+                    invisAnimationTrack:Play()
+                    invisAnimationTrack:AdjustSpeed(100)
+                end
+
+                for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+                    if track ~= invisAnimationTrack then
+                        track:Stop()
+                    end
+                end
+            end
+        end)
+    end
+
+    local function stopInvisible()
+        IsInvisibleActive = false
+
+        if invisAnimationTrack then
+            invisAnimationTrack:Stop()
+            invisAnimationTrack = nil
+        end
+
+        if antiOverrideLoop then
+            antiOverrideLoop:Disconnect()
+            antiOverrideLoop = nil
+        end
+
+        makeVisible()
+
+        for _, connection in pairs(InvisibleConnections) do
+            pcall(function()
+                if connection and connection.Connected then
+                    connection:Disconnect()
+                end
+            end)
+        end
+
+        InvisibleConnections = {}
+    end
+
+    if not isInvisibleAllowed then
+        stopInvisible()
+    end
+
+    PlayerTab:Paragraph({
+        Title = "Invisible Player Status",
+        Desc = (isInvisibleAllowed and "Invisible dapat digunakan di map ini!" 
+            or "Invisible tidak dapat digunakan di map ini!"),
+    })
+
+    local invisToggle = PlayerTab:Toggle({
+        Title = "[◉] Invisible Player",
+        Desc = "Berfungsi agar kamu tidak dapat dilihat oleh orang lain.",
+        Icon = "check",
+        Value = false,
+        Callback = function(state)
+            if not isInvisibleAllowed then
+                WindUI:Notify({
+                    Title = "Blocked",
+                    Content = "Fitur Invisible diblok di map ini!",
+                    Duration = 3,
+                    Icon = "x-circle",
+                })
+                stopInvisible()
+                return
+            end
+
+            if state then
+                if not loadInvisibleAnimation() then
+                    WindUI:Notify({
+                        Title = "Error",
+                        Content = "Gagal memuat animasi invisible!",
+                        Duration = 3,
+                        Icon = "alert-triangle",
+                    })
+                    return
+                end
+
+                IsInvisibleActive = true
+                invisAnimationTrack:Play()
+                invisAnimationTrack:AdjustSpeed(100)
+                makeTransparent()
+                startAntiOverride()
+
+                InvisibleConnections[1] = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                    if gameProcessed then return end
+                    if input.KeyCode == Enum.KeyCode.G then
+                        IsInvisibleActive = not IsInvisibleActive
+
+                        if IsInvisibleActive then
+                            invisAnimationTrack:Play()
+                            invisAnimationTrack:AdjustSpeed(100)
+                            makeTransparent()
+                            startAntiOverride()
+                        else
+                            invisAnimationTrack:Stop()
+                            if antiOverrideLoop then antiOverrideLoop:Disconnect() end
+                            makeVisible()
+                        end
+
+                        WindUI:Notify({
+                            Title = "Invisible Player",
+                            Content = IsInvisibleActive and "Invisible ON" or "Invisible OFF",
+                            Duration = 2,
+                            Icon = "eye-off",
+                        })
+                    end
+                end)
+
+                InvisibleConnections[2] = humanoid.AnimationPlayed:Connect(function(track)
+                    if IsInvisibleActive and invisAnimationTrack and track ~= invisAnimationTrack then
+                        track:Stop()
+                        if not invisAnimationTrack.IsPlaying then
+                            invisAnimationTrack:Play()
+                            invisAnimationTrack:AdjustSpeed(100)
+                        end
+                    end
+                end)
+
+                WindUI:Notify({
+                    Title = "Invisible Player",
+                    Content = "Invisible aktif! Tekan G untuk Toggle.",
+                    Duration = 3,
+                    Icon = "eye-off",
+                })
+
+            else
+                stopInvisible()
+                WindUI:Notify({
+                    Title = "Invisible Player",
+                    Content = "Invisible dimatikan.",
+                    Duration = 2,
+                    Icon = "eye",
+                })
+            end
+        end
+    })
+
+    if not isInvisibleAllowed then
+        invisToggle:Lock("Invisible diblokir pada map ini (PlaceID: " .. currentPlaceId .. ")")
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if menuCreated then
+            setupAccountTab()
+            setupAutowalkTab()
+            setupCopyavatarTab()
+            setupCustomanimationTab()
+            setupPlayerTab()
+            setupLogoutTab()
+            break
+        end
+    end
+end)
