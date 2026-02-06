@@ -3164,12 +3164,12 @@ return{
 Dark={
 Name="Dark",
 
-Accent=Color3.fromHex"#000000ff",
-Dialog=Color3.fromHex"#000000ff",
+Accent=Color3.fromHex"#18181b",
+Dialog=Color3.fromHex"#161616",
 Outline=Color3.fromHex"#FFFFFF",
 Text=Color3.fromHex"#FFFFFF",
-Placeholder=Color3.fromHex"#000000ff",
-Background=Color3.fromHex"#000000ff",
+Placeholder=Color3.fromHex"#7a7a7a",
+Background=Color3.fromHex"#101010",
 Button=Color3.fromHex"#52525b",
 Icon=Color3.fromHex"#a1a1aa",
 Toggle=Color3.fromHex"#33C759",
